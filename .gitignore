@@ -85,3 +85,4 @@ Thumbs.db
 # ----------------------------------------
 # Intentionally DO NOT ignore Eigen includes so they can be committed when this plugin is used standalone.
 **/ThirdParty/Eigen/
+!**/ThirdParty/Eigen/include/.gitkeep

@@ -1,0 +1,24 @@
+﻿{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "SimpleML",
+  "Description": "SimpleML plugin scaffolding with public Eigen include path.",
+  "Category": "Machine Learning",
+  "CreatedBy": "ExperimentsECSNN",
+  "CreatedByURL": "",
+  "DocsURL": "",
+  "MarketplaceURL": "",
+  "SupportURL": "",
+  "CanContainContent": false,
+  "IsBetaVersion": true,
+  "IsExperimentalVersion": true,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "SimpleML",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
+}
