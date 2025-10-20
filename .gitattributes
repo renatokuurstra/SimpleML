@@ -1,0 +1,21 @@
+﻿# Normalize line endings for text files
+yml text eol=lf
+json text eol=lf
+md text eol=lf
+cs text eol=lf
+cpp text eol=lf
+h text eol=lf
+hpp text eol=lf
+Build.cs text eol=lf
+uplugin text eol=lf
+
+# Treat common binary formats appropriately
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.uasset binary
+*.umap binary
+*.exe binary
+*.dll binary
+*.lib binary
+*.pdb binary
