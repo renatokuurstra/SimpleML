@@ -71,9 +71,11 @@ private:
     
     TArray<FLayerMemoryLayout> LayerLayouts;
 
+
 public:
     TNeuralNetwork() = default;
-
+    bool bIsInitialized = false;
+    
     /**
      * Initialize the neural network with given layer descriptors
      * @param InLayerDescriptors Array of layer descriptors defining the network architecture
@@ -217,12 +219,43 @@ public:
     {
         return LayerDescriptors.Num() > 0 ? LayerDescriptors[0].NeuronCount : 0;
     }
+    
 
     int32 GetOutputSize() const
     {
         return LayerDescriptors.Num() > 0 ? LayerDescriptors.Last().NeuronCount : 0;
     }
 
+    // Perform a feedforward pass taking inputs by array ref and writing outputs into OutOutputs.
+    // Returns true on success (when input count matches network input size), false otherwise.
+    bool FeedforwardArray(const TArray<T>& InInputs, TArray<T>& OutOutputs)
+    {
+        const int32 ExpectedIn = GetInputSize();
+        const int32 OutSize = GetOutputSize();
+        if (ExpectedIn <= 0 || OutSize <= 0)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("FeedforwardArray called on an uninitialized network (no layers)."));
+            OutOutputs.Reset();
+            return false;
+        }
+        if (InInputs.Num() != ExpectedIn)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("FeedforwardArray input size mismatch. Expected %d, got %d."), ExpectedIn, InInputs.Num());
+            return false;
+        }
+
+        // Map input array to Eigen vector
+        Eigen::Map<const Eigen::Matrix<T, Eigen::Dynamic, 1>> InputVec(InInputs.GetData(), InInputs.Num());
+        Eigen::Matrix<T, Eigen::Dynamic, 1> OutVec = Forward(InputVec);
+
+        OutOutputs.SetNumUninitialized(OutVec.size());
+        for (int32 i = 0; i < OutVec.size(); ++i)
+        {
+            OutOutputs[i] = OutVec(i);
+        }
+        return true;
+    }
+    
     /**
      * Get weight matrix for a specific layer as Eigen matrix map
      * @param LayerIndex Index of the layer (0-based, after input layer)
@@ -340,34 +373,4 @@ public:
      */
     TArray<T>& GetBiasesData() { return BiasesData; }
     const TArray<T>& GetBiasesData() const { return BiasesData; }
-};
-
-/**
- * USTRUCT wrapper for use in ECS and Blueprint systems
- * Note: USTRUCTs cannot be templated, so we provide specific type instantiations
- */
-USTRUCT(BlueprintType)
-struct FNeuralNetworkFloat
-{
-    GENERATED_BODY()
-
-    TNeuralNetwork<float> Network;
-
-    void Initialize(const TArray<FNeuralNetworkLayerDescriptor>& LayerDescriptors)
-    {
-        Network.Initialize(LayerDescriptors);
-    }
-};
-
-USTRUCT(BlueprintType)
-struct FNeuralNetworkDouble
-{
-    GENERATED_BODY()
-
-    TNeuralNetwork<double> Network;
-
-    void Initialize(const TArray<FNeuralNetworkLayerDescriptor>& LayerDescriptors)
-    {
-        Network.Initialize(LayerDescriptors);
-    }
 };

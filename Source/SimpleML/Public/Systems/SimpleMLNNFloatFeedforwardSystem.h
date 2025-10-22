@@ -4,20 +4,23 @@
 #include "CoreMinimal.h"
 #include "EcsSystem.h"
 #include "Components/NetworkComponent.h"
-#include "SimpleMLFeedforwardSystem.generated.h"
+#include "Components/NNIOComponents.h"
+#include "SimpleMLNNFloatFeedforwardSystem.generated.h"
 
 /**
  * ECS System to execute a feedforward pass over FNetworkComponent using its InputValues -> OutputValues.
  * Note: For now this supports standard feedforward layers only.
  */
 UCLASS()
-class SIMPLEML_API USimpleMLFeedforwardSystem : public UEcsSystem
+class SIMPLEML_API USimpleMLNNFloatFeedforwardSystem : public UEcsSystem
 {
 	GENERATED_BODY()
 public:
-	USimpleMLFeedforwardSystem()
+	USimpleMLNNFloatFeedforwardSystem()
 	{
-		RegisterComponent<FNetworkComponent>();
+		RegisterComponent<FNeuralNetworkFloat>();
+		RegisterComponent<FNNInFLoatComp>();
+		RegisterComponent<FNNOutFloatComp>();
 	}
 
 	virtual void Update(float DeltaTime = 0.0f) override;
