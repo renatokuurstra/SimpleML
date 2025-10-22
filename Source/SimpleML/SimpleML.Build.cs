@@ -21,7 +21,7 @@ public class SimpleML : ModuleRules
 
         // Expose Eigen headers publicly so other modules depending on SimpleML can include them
         string ThirdPartyDir = Path.Combine(ModuleDirectory, "..", "..", "ThirdParty");
-        string EigenIncludeDir = Path.GetFullPath(Path.Combine(ThirdPartyDir, "Eigen", "include"));
+        string EigenIncludeDir = Path.GetFullPath(Path.Combine(ThirdPartyDir, "Eigen"));
 
         if (Directory.Exists(EigenIncludeDir))
         {
@@ -35,5 +35,18 @@ public class SimpleML : ModuleRules
             PublicIncludePaths.Add(EigenIncludeDir);
             PublicSystemIncludePaths.Add(EigenIncludeDir);
         }
+
+        // Safer defaults for using Eigen with MSVC/Unreal
+        PublicDefinitions.AddRange(new string[]
+        {
+            "NOMINMAX",
+            "EIGEN_MPL2_ONLY=1",
+#if UE_BUILD_SHIPPING
+            "EIGEN_NO_DEBUG",
+#endif
+            // Avoid potential alignment issues with custom allocators / MSVC under Unreal
+            "EIGEN_DONT_ALIGN_STATICALLY=1",
+            "EIGEN_MAX_ALIGN_BYTES=0"
+        });
     }
 }
