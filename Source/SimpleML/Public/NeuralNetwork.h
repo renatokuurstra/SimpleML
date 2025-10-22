@@ -5,7 +5,10 @@
 THIRD_PARTY_INCLUDES_START
 #include "Dense"
 THIRD_PARTY_INCLUDES_END
+#include "Neurons/MemoryLayout.h"
+#include "Neurons/Neuron.h"
 #include "NeuralNetwork.generated.h"
+
 
 /**
  * Enum to specify the type of neural network layer
@@ -38,12 +41,8 @@ struct FNeuralNetworkLayerDescriptor
     }
 };
 
-// Minimal neuron type placeholder for future extension
-USTRUCT(BlueprintType)
-struct SIMPLEML_API FNeuron
-{
-    GENERATED_BODY()
-};
+
+// Neuron implementation moved to Neurons/Neuron.h
 
 /**
  * Templated neural network structure with continuous memory layout for all layers.
@@ -63,17 +62,7 @@ private:
     TArray<T> BiasesData;
     
     // Offset information for accessing layer data
-    struct FLayerMemoryLayout
-    {
-        int32 WeightsOffset;
-        int32 WeightsCount;
-        int32 BiasesOffset;
-        int32 BiasesCount;
-        int32 InputSize;
-        int32 OutputSize;
-        ENeuronLayerType LayerType;
-    };
-    
+private:
     TArray<FLayerMemoryLayout> LayerLayouts;
 
 
@@ -277,26 +266,7 @@ public:
      */
     Eigen::Matrix<T, Eigen::Dynamic, 1> Forward(const Eigen::Matrix<T, Eigen::Dynamic, 1>& Input)
     {
-        Eigen::Matrix<T, Eigen::Dynamic, 1> Activation = Input;
-
-        for (int32 LayerIdx = 0; LayerIdx < LayerLayouts.Num(); ++LayerIdx)
-        {
-            const FLayerMemoryLayout& Layout = LayerLayouts[LayerIdx];
-
-            auto Weights = GetWeightMatrix(LayerIdx);
-            auto Biases = GetBiasVector(LayerIdx);
-            
-            // Linear transformation: y = Wx + b
-            Activation = Weights * Activation + Biases;
-            
-            // Apply activation function (ReLU for hidden layers)
-            if (LayerIdx < LayerLayouts.Num() - 1)
-            {
-                Activation = Activation.array().max(0);  // ReLU
-            }
-        }
-
-        return Activation;
+        return TNeuron::template FeedforwardNetwork<T>(LayerLayouts, WeightsData, BiasesData, Input);
     }
 
     /**
