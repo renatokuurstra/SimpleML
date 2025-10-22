@@ -20,5 +20,8 @@
       "Type": "Runtime",
       "LoadingPhase": "Default"
     }
+  ],
+  "Plugins": [
+    { "Name": "UEcs", "Enabled": true }
   ]
 }

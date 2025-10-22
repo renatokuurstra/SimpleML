@@ -176,6 +176,53 @@ public:
         }
     }
 
+    // Fill weights and biases with a uniform random in [Min, Max]
+    void InitializeWeightsUniform(T Min, T Max)
+    {
+        FRandomStream RandomStream(FDateTime::Now().GetTicks());
+        for (int32 LayerIdx = 0; LayerIdx < LayerLayouts.Num(); ++LayerIdx)
+        {
+            const FLayerMemoryLayout& Layout = LayerLayouts[LayerIdx];
+            for (int32 i = 0; i < Layout.WeightsCount; ++i)
+            {
+                const int32 Index = Layout.WeightsOffset + i;
+                WeightsData[Index] = static_cast<T>(RandomStream.FRandRange((float)Min, (float)Max));
+            }
+            for (int32 i = 0; i < Layout.BiasesCount; ++i)
+            {
+                const int32 Index = Layout.BiasesOffset + i;
+                BiasesData[Index] = static_cast<T>(RandomStream.FRandRange((float)Min, (float)Max));
+            }
+        }
+    }
+
+    // Deterministic fill (Min==Max) convenience
+    void FillWeightsBiases(T Value)
+    {
+        for (int32 LayerIdx = 0; LayerIdx < LayerLayouts.Num(); ++LayerIdx)
+        {
+            const FLayerMemoryLayout& Layout = LayerLayouts[LayerIdx];
+            for (int32 i = 0; i < Layout.WeightsCount; ++i)
+            {
+                WeightsData[Layout.WeightsOffset + i] = Value;
+            }
+            for (int32 i = 0; i < Layout.BiasesCount; ++i)
+            {
+                BiasesData[Layout.BiasesOffset + i] = Value;
+            }
+        }
+    }
+
+    int32 GetInputSize() const
+    {
+        return LayerDescriptors.Num() > 0 ? LayerDescriptors[0].NeuronCount : 0;
+    }
+
+    int32 GetOutputSize() const
+    {
+        return LayerDescriptors.Num() > 0 ? LayerDescriptors.Last().NeuronCount : 0;
+    }
+
     /**
      * Get weight matrix for a specific layer as Eigen matrix map
      * @param LayerIndex Index of the layer (0-based, after input layer)

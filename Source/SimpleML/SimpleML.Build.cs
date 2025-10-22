@@ -11,6 +11,7 @@ public class SimpleML : ModuleRules
         PublicDependencyModuleNames.AddRange(new string[]
         {
             "Core",
+            "UEcs",
         });
 
         PrivateDependencyModuleNames.AddRange(new string[]
@@ -27,7 +28,6 @@ public class SimpleML : ModuleRules
         {
             PublicIncludePaths.Add(EigenIncludeDir);
             PublicSystemIncludePaths.Add(EigenIncludeDir);
-            bEnableUndefinedIdentifierWarnings = false; // Eigen uses heavy templates; keep warnings manageable
         }
         else
         {
