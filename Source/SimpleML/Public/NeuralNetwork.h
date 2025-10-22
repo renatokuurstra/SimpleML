@@ -13,9 +13,7 @@ THIRD_PARTY_INCLUDES_END
 UENUM(BlueprintType)
 enum class ENeuronLayerType : uint8
 {
-    Feedforward UMETA(DisplayName = "Feedforward"),
-    LSTM UMETA(DisplayName = "LSTM"),
-    GRU UMETA(DisplayName = "GRU")
+    Feedforward UMETA(DisplayName = "Feedforward")
 };
 
 /**
@@ -40,13 +38,20 @@ struct FNeuralNetworkLayerDescriptor
     }
 };
 
+// Minimal neuron type placeholder for future extension
+USTRUCT(BlueprintType)
+struct SIMPLEML_API FNeuron
+{
+    GENERATED_BODY()
+};
+
 /**
  * Templated neural network structure with continuous memory layout for all layers.
  * Supports feedforward, LSTM, and GRU neuron types.
  * 
  * @tparam T The data type for weights and biases (float, double, etc.)
  */
-template<typename T>
+template<typename T, typename TNeuron>
 struct TNeuralNetwork
 {
 private:
@@ -108,32 +113,9 @@ public:
             Layout.WeightsOffset = TotalWeights;
             Layout.BiasesOffset = TotalBiases;
 
-            // Calculate weights and biases based on layer type
-            switch (LayerType)
-            {
-            case ENeuronLayerType::Feedforward:
-                Layout.WeightsCount = InputSize * OutputSize;
-                Layout.BiasesCount = OutputSize;
-                break;
-
-            case ENeuronLayerType::LSTM:
-                // LSTM has 4 gates (input, forget, cell, output)
-                // Each gate needs weights for input and recurrent connections
-                Layout.WeightsCount = 4 * OutputSize * (InputSize + OutputSize);
-                Layout.BiasesCount = 4 * OutputSize;
-                break;
-
-            case ENeuronLayerType::GRU:
-                // GRU has 3 gates (reset, update, new)
-                Layout.WeightsCount = 3 * OutputSize * (InputSize + OutputSize);
-                Layout.BiasesCount = 3 * OutputSize;
-                break;
-
-            default:
-                Layout.WeightsCount = InputSize * OutputSize;
-                Layout.BiasesCount = OutputSize;
-                break;
-            }
+            // Calculate weights and biases (feedforward only)
+            Layout.WeightsCount = InputSize * OutputSize;
+            Layout.BiasesCount = OutputSize;
 
             TotalWeights += Layout.WeightsCount;
             TotalBiases += Layout.BiasesCount;
@@ -265,27 +247,11 @@ public:
     {
         check(LayerIndex >= 0 && LayerIndex < LayerLayouts.Num());
         const FLayerMemoryLayout& Layout = LayerLayouts[LayerIndex];
-        
-        // For feedforward layers: rows = OutputSize, cols = InputSize
-        if (Layout.LayerType == ENeuronLayerType::Feedforward)
-        {
-            return Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(
-                &WeightsData[Layout.WeightsOffset],
-                Layout.OutputSize,
-                Layout.InputSize
-            );
-        }
-        else
-        {
-            // For LSTM/GRU, return full weight matrix (caller needs to interpret gate structure)
-            const int32 TotalInputSize = Layout.InputSize + Layout.OutputSize;
-            const int32 GateCount = (Layout.LayerType == ENeuronLayerType::LSTM) ? 4 : 3;
-            return Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(
-                &WeightsData[Layout.WeightsOffset],
-                GateCount * Layout.OutputSize,
-                TotalInputSize
-            );
-        }
+        return Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(
+            &WeightsData[Layout.WeightsOffset],
+            Layout.OutputSize,
+            Layout.InputSize
+        );
     }
 
     /**
@@ -317,25 +283,16 @@ public:
         {
             const FLayerMemoryLayout& Layout = LayerLayouts[LayerIdx];
 
-            if (Layout.LayerType == ENeuronLayerType::Feedforward)
+            auto Weights = GetWeightMatrix(LayerIdx);
+            auto Biases = GetBiasVector(LayerIdx);
+            
+            // Linear transformation: y = Wx + b
+            Activation = Weights * Activation + Biases;
+            
+            // Apply activation function (ReLU for hidden layers)
+            if (LayerIdx < LayerLayouts.Num() - 1)
             {
-                auto Weights = GetWeightMatrix(LayerIdx);
-                auto Biases = GetBiasVector(LayerIdx);
-                
-                // Linear transformation: y = Wx + b
-                Activation = Weights * Activation + Biases;
-                
-                // Apply activation function (ReLU for hidden layers)
-                if (LayerIdx < LayerLayouts.Num() - 1)
-                {
-                    Activation = Activation.array().max(0);  // ReLU
-                }
-            }
-            else
-            {
-                // LSTM/GRU forward pass would go here
-                // Left as placeholder for future implementation
-                UE_LOG(LogTemp, Warning, TEXT("LSTM/GRU forward pass not yet implemented"));
+                Activation = Activation.array().max(0);  // ReLU
             }
         }
 

@@ -11,7 +11,7 @@ struct SIMPLEML_API FNeuralNetworkFloat
 {
 	GENERATED_BODY()
 
-	TNeuralNetwork<float> Network;
+	TNeuralNetwork<float, FNeuron> Network;
 
 	void Initialize(const TArray<FNeuralNetworkLayerDescriptor>& LayerDescriptors)
 	{
@@ -24,7 +24,7 @@ struct SIMPLEML_API FNeuralNetworkDouble
 {
 	GENERATED_BODY()
 
-	TNeuralNetwork<double> Network;
+	TNeuralNetwork<double, FNeuron> Network;
 
 	void Initialize(const TArray<FNeuralNetworkLayerDescriptor>& LayerDescriptors)
 	{
