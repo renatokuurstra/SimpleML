@@ -9,6 +9,8 @@ public class GeneticAlgorithm : ModuleRules
         PublicDependencyModuleNames.AddRange(new string[]
         {
             "Core",
+            "CoreUObject",
+            "Engine",
             "UEcs"
         });
 
