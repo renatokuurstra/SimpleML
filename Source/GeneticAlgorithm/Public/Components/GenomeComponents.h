@@ -44,4 +44,19 @@ struct GENETICALGORITHM_API FFitnessComponent
 	// Owning fitness storage to support serialization and editor inspection if later desired
 	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm")
 	TArray<float> Fitness;
+
+	// Index of the fitness dimension this entity was built/optimized for. -1 means no specific index.
+	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm")
+	int32 BuiltForFitnessIndex = -1;
+};
+
+/**
+ * Tag component: marks entities whose genome should be rebuilt/reset.
+ * Stateless POD; presence implies action.
+ */
+USTRUCT(BlueprintType)
+struct GENETICALGORITHM_API FResetGenomeComponent
+{
+	GENERATED_BODY()
+	// Intentionally empty
 };
