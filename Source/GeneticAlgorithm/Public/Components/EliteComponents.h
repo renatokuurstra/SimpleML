@@ -1,4 +1,5 @@
-﻿// GeneticAlgorithm module (within SimpleML): Elite solution owning components
+﻿//Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
+// GeneticAlgorithm module (within SimpleML): Elite solution owning components
 // Why: Store copies of elite genomes so we can preserve and reuse the best individuals across generations
 #pragma once
 

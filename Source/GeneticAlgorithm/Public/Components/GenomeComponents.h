@@ -1,4 +1,5 @@
-﻿// GeneticAlgorithm module (within SimpleML): ECS components for genomes and fitness
+﻿//Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
+// GeneticAlgorithm module (within SimpleML): ECS components for genomes and fitness
 // Why: Provide POD-style data containers for GA systems to operate on.
 #pragma once
 
