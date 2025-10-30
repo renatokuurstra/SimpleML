@@ -11,6 +11,12 @@
  * - Computes top-N per fitness index.
  * - Ensures per-index elite entity pools exist and are reused.
  * - Minimizes duplication by centralizing the selection loop and delegating type-specific save logic.
+ *
+ * TODO
+ *  - Optimizations:
+ *		- Move various arrays to member variables.
+ *		- Ensure that if we already have the elite entity, we don't copy it over.
+ *			- Right now, we copy NumElite * NumFitnesses every time we keep the elites.
  */
 UCLASS(Abstract)
 	class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
@@ -119,11 +125,7 @@ UCLASS(Abstract)
 
 				const FFitnessComponent& FitnessComp = Registry.get<FFitnessComponent>(SourceEntity);
 				const int32 FitnessDims = FitnessComp.Fitness.Num();
-				if (FitnessDims == 0)
-				{
-					++CurrentOrder;
-					continue;
-				}
+				
 				if (SelectionBuckets.Num() < FitnessDims)
 				{
 					SelectionBuckets.SetNum(FitnessDims);
@@ -150,7 +152,6 @@ UCLASS(Abstract)
 
 				const int32 N = FMath::Clamp(EliteCount, 1, Bucket.Num());
 				IndexScratch.Reset(Bucket.Num());
-				IndexScratch.Reserve(Bucket.Num());
 				for (int32 i = 0; i < Bucket.Num(); ++i) { IndexScratch.Add(i); }
 				IndexScratch.Sort([this, &Bucket](int32 A, int32 B)
 				{
