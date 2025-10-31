@@ -14,7 +14,8 @@ public class GeneticAlgorithmTests : ModuleRules
             "CoreUObject",
             "Engine",
             "UEcs",
-            "GeneticAlgorithm"
+            "GeneticAlgorithm",
+            "CQTest"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[]
