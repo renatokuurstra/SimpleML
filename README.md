@@ -59,6 +59,7 @@ Key headers (under `Plugins/SimpleML/Source/GeneticAlgorithm/Public`):
   - `Systems/BreedCharGenomesSystem.h`
   - `Systems/EliteSelectionFloatSystem.h`
   - `Systems/MutationFloatGenomeSystem.h`
+  - `Systems/MutationCharGenomeSystem.h`
 
 These systems are small, focused, and stateless; they operate purely on the provided component data.
 
