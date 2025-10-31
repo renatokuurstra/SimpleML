@@ -24,6 +24,11 @@
       "Name": "GeneticAlgorithm",
       "Type": "Runtime",
       "LoadingPhase": "Default"
+    },
+    {
+      "Name": "GeneticAlgorithmTests",
+      "Type": "Developer",
+      "LoadingPhase": "Default"
     }
   ],
   "Plugins": [
