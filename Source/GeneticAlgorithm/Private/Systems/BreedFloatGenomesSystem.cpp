@@ -95,6 +95,7 @@ void UBreedFloatGenomesSystem::Update(float /*DeltaTime*/)
 			continue;
 		}
 
+		//TODO: Bit suspicious, maybe there is a better way to check this?
 		// Validate components
 		if (!Registry.all_of<FGenomeFloatViewComponent>(ParentA) || !Registry.all_of<FGenomeFloatViewComponent>(ParentB) || !Registry.all_of<FGenomeFloatViewComponent>(ChildEntity))
 		{
