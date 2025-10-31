@@ -1,56 +1,77 @@
 ﻿# SimpleML Plugin
 
-SimpleML provides machine learning building blocks for Unreal Engine with a focus on data-oriented design and ECS-first workflows.
+SimpleML is an Unreal Engine plugin focused on lightweight, ECS-first machine learning utilities. It favors data-oriented design and stateless systems operating on POD-style component data.
 
 ## Table of Contents
-- Overview
-- Modules
-  - SimpleML (Core)
-  - Genetic Algorithm
-- Public API
-  - Genetic Algorithm Components
-  - Genetic Algorithm Systems
-- Usage
-- Dependencies
-- Notes on Design
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Modules](#modules)
+- [Usage Basics](#usage-basics)
+- [Public API (overview)](#public-api-overview)
+- [Testing](#testing)
+- [Design Guidelines](#design-guidelines)
+- [License](#license)
 
-## Overview
-SimpleML is structured as multiple modules. The `GeneticAlgorithm` module hosts POD-style ECS components and stateless systems to compose GA workflows (mutation, selection). Arrays and data are designed for cache friendliness and integration with `UEcs`.
+## Requirements
+- Unreal Engine 5.6 (or compatible)
+- REQUIRED dependency: UEcs plugin (Entity Component System)
+  - Repository: https://github.com/renatokuurstra/UEcs
+  - SimpleML depends on UEcs types like `UEcsSystem` and ECS components. Ensure UEcs is installed and enabled in your project.
+
+## Installation
+1. Clone or copy the `SimpleML` plugin folder into your project under `Plugins/SimpleML`.
+2. Install the `UEcs` plugin:
+   - Option A: Clone into your project as `Plugins/UEcs`:
+     ```
+     cd <YourProject>
+     git submodule add https://github.com/renatokuurstra/UEcs Plugins/UEcs
+     ```
+   - Option B: Copy an existing `UEcs` plugin folder into `Plugins/UEcs`.
+3. Ensure the `SimpleML.uplugin` lists UEcs as a dependency. In this repo it’s already declared:
+   ```json
+   "Plugins": [
+     { "Name": "UEcs", "Enabled": true }
+   ]
+   ```
+4. Open your project in Unreal Editor and enable both `UEcs` and `SimpleML` if not already enabled. Rebuild when prompted.
 
 ## Modules
-- SimpleML: Core ML utilities and neural network types.
-- Genetic Algorithm: ECS-first genetic algorithm components and systems.
+SimpleML currently provides the following modules:
+- `SimpleML` (Runtime): Base module for shared ML scaffolding.
+- `GeneticAlgorithm` (Runtime): Systems and components for genome representation, breeding, selection, and mutation.
+- `GeneticAlgorithmTests` (Developer): Test/experimental code that depends on `GeneticAlgorithm`.
 
-## Public API
+## Usage Basics
+- ECS-first: author systems deriving from `UEcsSystem` and operate on simple component data.
+- Avoid UObject bloat: use `USTRUCT` components with `TArray`/`TArrayView` for data, reserve `UObject` only when reflection/editor features are required.
+- Example components (GeneticAlgorithm):
+  - `FGenomeFloatViewComponent`, `FGenomeCharViewComponent`, `FFitnessComponent`, `FResetGenomeComponent`.
+- Example systems (GeneticAlgorithm):
+  - Breeding: `UBreedFloatGenomesSystem`, `UBreedCharGenomesSystem`
+  - Selection: `UEliteSelectionFloatSystem`
+  - Mutation: `UMutationFloatGenomeSystem` (per-value ±X% noise, optional random resets)
 
-### Genetic Algorithm Components
-- `FGenomeFloatViewComponent`
-  - `TArrayView<float> Values` — non-owning view over a contiguous float genome buffer.
-- `FGenomeCharViewComponent`
-  - `TArrayView<char> Values` — non-owning view over a contiguous char/byte genome buffer.
-- `FFitnessComponent`
-  - `TArray<float> Fitness` — owning array storing fitness scores, aligned to entity order.
+## Public API (overview)
+Key headers (under `Plugins/SimpleML/Source/GeneticAlgorithm/Public`):
+- Components: `Components/GenomeComponents.h`
+- Systems:
+  - `Systems/BreedFloatGenomesSystem.h`
+  - `Systems/BreedCharGenomesSystem.h`
+  - `Systems/EliteSelectionFloatSystem.h`
+  - `Systems/MutationFloatGenomeSystem.h`
 
-### Genetic Algorithm Systems
-- `UMutationFloatGenomeSystem` (depends on `FGenomeFloatViewComponent`)
-  - Boilerplate system for genome mutation with float views (logic to be defined later).
-- `UTournamentSelectionSystem` (depends on `FFitnessComponent`)
-  - Boilerplate system for tournament-based parent selection (to be defined).
-- `UEliteSelectionSystem` (depends on `FFitnessComponent`)
-  - Boilerplate system for elite selection (top-N preservation) (to be defined).
+These systems are small, focused, and stateless; they operate purely on the provided component data.
 
-## Usage
-1. Enable the `SimpleML` plugin. The `GeneticAlgorithm` module is part of it and loads by default.
-2. Ensure the `UEcs` plugin is enabled; systems derive from `UEcsSystem`.
-3. Register entities with relevant components (e.g., attach `FGenomeFloatViewComponent` with a view into your genome storage and `FFitnessComponent` for fitness values).
-4. Instantiate systems as needed and call `Initialize` with your ECS `entt::registry`. Call `Update` per tick.
+## Testing
+- A developer module `GeneticAlgorithmTests` exists to host CQTests. It depends on `GeneticAlgorithm`.
+- To add tests, place them under `Plugins/SimpleML/Source/GeneticAlgorithmTests` and mirror common setup/teardown using BEFORE_EACH/AFTER_EACH where possible.
 
-Note: `TArrayView` members are non-owning. You must maintain the lifetime of underlying buffers and keep them contiguous and stable while systems operate.
+## Design Guidelines
+- Plugins-first architecture; minimal inter-plugin dependencies.
+- ECS-first mindset and POD-style data.
+- Follow Epic coding standard (PascalCase classes, camelCase functions, b-prefixed booleans, brace style, etc.).
+- Header hygiene: prefer forward declarations, avoid monolithic includes.
+- Comments explain why, not what.
 
-## Dependencies
-- `UEcs` (public dependency of the `GeneticAlgorithm` module)
-
-## Notes on Design
-- ECS-first and data-oriented design: keep systems small and focused; avoid UObject bloat.
-- Header hygiene: minimal includes; prefer forward declarations where possible.
-- Mutation and selection logic is intentionally left as TODO to be defined later.
+## License
+Copyright (c) 2025 Renato Kuurstra. MIT License. See `LICENSE` in the project root.

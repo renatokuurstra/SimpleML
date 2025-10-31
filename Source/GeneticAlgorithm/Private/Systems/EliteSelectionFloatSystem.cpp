@@ -18,7 +18,7 @@ void UEliteSelectionFloatSystem::SaveEliteGenome(entt::entity SourceEntity, entt
     const TArrayView<float>& Src = SrcComp.Values;
     if (Src.Num() > 0)
     {
-        DstComp.Values.SetNum(Src.Num(), /*bAllowShrinking*/ false);
+        DstComp.Values.SetNum(Src.Num(), EAllowShrinking::No);
         for (int32 i = 0; i < Src.Num(); ++i)
         {
             DstComp.Values[i] = Src[i];

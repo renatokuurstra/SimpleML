@@ -8,8 +8,15 @@
 #include "MutationFloatGenomeSystem.generated.h"
 
 /**
- * Boilerplate mutation system acting on FGenomeFloatViewComponent.
- * Logic will be filled later; for now, it only declares dependencies and an empty Update.
+ * Mutates float genomes in-place.
+ *
+ * Operations, in order:
+ * 1) Apply per-value multiplicative noise: v *= (1 + u), where u ~ U[-PerValueDeltaPercent, +PerValueDeltaPercent].
+ * 2) Roll per-entity random mutation with probability RandomMutationChance.
+ * 3) If triggered, reset a random number of weights: N ~ U[0, RandomResetMaxPercent * Count], clamped to at least 1.
+ *    Each reset index is unique; values are sampled in [RandomResetMin, RandomResetMax].
+ *
+ * Stateless; only requires FGenomeFloatViewComponent.
  */
 UCLASS()
 class GENETICALGORITHM_API UMutationFloatGenomeSystem : public UEcsSystem
@@ -18,9 +25,31 @@ class GENETICALGORITHM_API UMutationFloatGenomeSystem : public UEcsSystem
 public:
 	UMutationFloatGenomeSystem()
 	{
-		// Declare we require the float genome view
 		RegisterComponent<FGenomeFloatViewComponent>();
 	}
+
+	// ±X% multiplicative noise per float (default 2.5%)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Mutation", meta=(ClampMin="0.0"))
+	float PerValueDeltaPercent = 0.025f;
+
+	// Per-genome probability to perform random resets (default 5%)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Mutation", meta=(ClampMin="0.0", ClampMax="1.0"))
+	float RandomMutationChance = 0.05f;
+
+	// Upper bound for fraction of weights to reset when random mutation triggers (default equals 2.5%)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Mutation", meta=(ClampMin="0.0", ClampMax="1.0"))
+	float RandomResetMaxPercent = 0.025f;
+
+	// Range used when resetting selected weights
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Mutation")
+	float RandomResetMin = -1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Mutation")
+	float RandomResetMax = 1.0f;
+
+	// Optional RNG seed for deterministic behavior (0 = use engine RNG)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Mutation")
+	int32 RandomSeed = 0;
 
 	virtual void Update(float DeltaTime = 0.0f) override;
 };
