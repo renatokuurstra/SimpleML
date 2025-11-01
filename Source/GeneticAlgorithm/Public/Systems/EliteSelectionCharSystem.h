@@ -8,7 +8,7 @@
 #include "EliteSelectionCharSystem.generated.h"
 
 /**
- * Selects elites per fitness index for char/byte genomes and copies their genomes into owning elite components.
+ * Selects and tags elites per fitness index for char/byte genomes.
  */
 UCLASS()
 class GENETICALGORITHM_API UEliteSelectionCharSystem : public UEliteSelectionBaseSystem
@@ -18,11 +18,8 @@ public:
 	UEliteSelectionCharSystem()
 	{
 		RegisterComponent<FGenomeCharViewComponent>();
-		RegisterComponent<FEliteSolutionCharComponent>();
-		RegisterComponent<FEliteGroupIndex>();
 	}
-
 protected:
-	virtual void Update(float DeltaTime = 0.0f) override;
-	virtual void SaveEliteGenome(entt::entity SourceEntity, entt::entity EliteEntity) override;
+	virtual bool IsCandidate(entt::entity E, const FFitnessComponent& Fit) const override;
+	virtual void CopyGenomeToElite(entt::entity Winner, entt::entity Elite, int32 FitnessIndex) override;
 };

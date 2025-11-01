@@ -95,20 +95,37 @@ void UBreedFloatGenomesSystem::Update(float /*DeltaTime*/)
 			continue;
 		}
 
-		//TODO: Bit suspicious, maybe there is a better way to check this?
-		// Validate components
-		if (!Registry.all_of<FGenomeFloatViewComponent>(ParentA) || !Registry.all_of<FGenomeFloatViewComponent>(ParentB) || !Registry.all_of<FGenomeFloatViewComponent>(ChildEntity))
+		// Resolve parent genome views: accept either FGenomeFloatViewComponent or FEliteSolutionFloatComponent
+		if (!Registry.all_of<FGenomeFloatViewComponent>(ChildEntity))
 		{
-			UE_LOG(LogTemp, Warning, TEXT("BreedFloatGenomesSystem: missing FGenomeFloatViewComponent on parent or child (reset index=%d)"), Index);
+			UE_LOG(LogTemp, Warning, TEXT("BreedFloatGenomesSystem: missing FGenomeFloatViewComponent on child (reset index=%d)"), Index);
 			continue;
 		}
 
-		const FGenomeFloatViewComponent& AViewComp = Registry.get<FGenomeFloatViewComponent>(ParentA);
-		const FGenomeFloatViewComponent& BViewComp = Registry.get<FGenomeFloatViewComponent>(ParentB);
-		FGenomeFloatViewComponent& ChildViewComp = Registry.get<FGenomeFloatViewComponent>(ChildEntity);
+		TOptional<TArrayView<const float>> MaybeA;
+		TOptional<TArrayView<const float>> MaybeB;
 
-		TArrayView<const float> AView = TArrayView<const float>(AViewComp.Values.GetData(), AViewComp.Values.Num());
-		TArrayView<const float> BView = TArrayView<const float>(BViewComp.Values.GetData(), BViewComp.Values.Num());
+		if (Registry.all_of<FGenomeFloatViewComponent>(ParentA))
+		{
+			const FGenomeFloatViewComponent& AViewComp = Registry.get<FGenomeFloatViewComponent>(ParentA);
+			MaybeA.Emplace(TArrayView<const float>(AViewComp.Values.GetData(), AViewComp.Values.Num()));
+		}
+
+		if (Registry.all_of<FGenomeFloatViewComponent>(ParentB))
+		{
+			const FGenomeFloatViewComponent& BViewComp = Registry.get<FGenomeFloatViewComponent>(ParentB);
+			MaybeB.Emplace(TArrayView<const float>(BViewComp.Values.GetData(), BViewComp.Values.Num()));
+		}
+
+		if (!MaybeA.IsSet() || !MaybeB.IsSet())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("BreedFloatGenomesSystem: missing genome on parent(s) (reset index=%d)"), Index);
+			continue;
+		}
+
+		FGenomeFloatViewComponent& ChildViewComp = Registry.get<FGenomeFloatViewComponent>(ChildEntity);
+		TArrayView<const float> AView = MaybeA.GetValue();
+		TArrayView<const float> BView = MaybeB.GetValue();
 		TArrayView<float> CView = ChildViewComp.Values;
 
 		const int32 GeneCount = FMath::Min3(AView.Num(), BView.Num(), CView.Num());

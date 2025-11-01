@@ -3,12 +3,15 @@
 
 #include "CoreMinimal.h"
 #include "CQTest.h"
+#include "Containers/StringConv.h"
 
 #include "entt/entt.hpp"
 
 // GA components and systems
 #include "Components/GenomeComponents.h"
 #include "Components/BreedingPairComponent.h"
+#include "Components/EliteComponents.h"
+#include "Systems/EliteSelectionCharSystem.h"
 #include "Systems/TournamentSelectionSystem.h"
 #include "Systems/BreedCharGenomesSystem.h"
 #include "Systems/MutationCharGenomeSystem.h"
@@ -32,7 +35,8 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 	int32 MaxGenerations = 500;
 	int32 Seed = 1337;
 
-	// Systems
+ // Systems
+	UEliteSelectionCharSystem* Elite = nullptr;
 	UTournamentSelectionSystem* Selection = nullptr;
 	UBreedCharGenomesSystem* Breeder = nullptr;
 	UMutationCharGenomeSystem* Mutator = nullptr;
@@ -45,24 +49,22 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 	BEFORE_EACH()
 	{
 		// Parameters
-		static const char* TargetLiteral = "This is an integration test for GA binary data";
-		GenomeLen = static_cast<int32>(FCStringAnsi::Strlen(TargetLiteral));
+		const FString TargetString = TEXT("This is an integration test for GA binary data");
+		// Convert wide string to UTF-8 bytes; our genome is byte-based and uses ASCII here.
+		{
+			FTCHARToUTF8 Converter(*TargetString);
+			GenomeLen = Converter.Length();
+			TargetBytes.Reset(GenomeLen);
+			TargetBytes.AddUninitialized(GenomeLen);
+			FMemory::Memcpy(TargetBytes.GetData(), (const void*)Converter.Get(), GenomeLen);
+		}
 		PopulationSize = 50;
 		MaxGenerations = 500;
 		Seed = 1337;
 
-		// Convert target to bytes
-		TargetBytes.Reset();
-		TargetBytes.Reserve(GenomeLen);
-		for (int32 i = 0; i < GenomeLen; ++i)
-		{
-			TargetBytes.Add(static_cast<uint8>(TargetLiteral[i]));
-		}
-
 		// Prepare genome storage
 		Genomes.SetNum(PopulationSize, EAllowShrinking::No);
 
-		// Create population without keeping an entity array; bind components and randomize genomes
 		FRandomStream Rng(Seed);
 		for (int32 i = 0; i < PopulationSize; ++i)
 		{
@@ -76,12 +78,15 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 
 			Registry.emplace<FGenomeCharViewComponent>(E, ViewComp);
 			Registry.emplace<FFitnessComponent>(E, Fit);
-			Registry.emplace<FResetGenomeComponent>(E, FResetGenomeComponent{});
 
 			GATestHelper::InitializeRandomGenome(Genomes[i], Registry.get<FGenomeCharViewComponent>(E), GenomeLen, Rng);
 		}
 
-		// Systems
+		Elite = NewObject<UEliteSelectionCharSystem>();
+		Elite->Initialize(Registry);
+		Elite->EliteCount = 3;
+		Elite->bHigherIsBetter = true;
+		
 		Selection = NewObject<UTournamentSelectionSystem>();
 		Selection->Initialize(Registry);
 		Selection->TournamentSize = 5;
@@ -105,6 +110,7 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 
 	AFTER_EACH()
 	{
+		if (Elite) { Elite->Deinitialize(); Elite = nullptr; }
 		if (Selection) { Selection->Deinitialize(); Selection = nullptr; }
 		if (Breeder) { Breeder->Deinitialize(); Breeder = nullptr; }
 		if (Mutator) { Mutator->Deinitialize(); Mutator = nullptr; }
@@ -133,6 +139,18 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 			// 1) Evaluate fitness
 			GATestHelper::ComputeBinaryFitness(Registry, TargetBytes);
 
+			// 1b) Mark all entities as reset candidates for next generation
+			{
+				auto PopView = Registry.view<FFitnessComponent>();
+				for (auto E : PopView)
+				{
+					if (!Registry.all_of<FResetGenomeComponent>(E))
+					{
+						Registry.emplace<FResetGenomeComponent>(E);
+					}
+				}
+			}
+
 			// 2) Track best genome and check for match
 			float BestFitnessLocal = -FLT_MAX;
 			entt::entity BestEntity = entt::null;
@@ -151,11 +169,22 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 			{
 				const TArrayView<char>& ViewBest = Registry.get<FGenomeCharViewComponent>(BestEntity).Values;
 				for (int32 i = 0; i < GenomeLen; ++i) { BestSoFar[i] = (i < ViewBest.Num()) ? ViewBest[i] : 0; }
-
+				
 				bool bEqual = true;
 				for (int32 i = 0; i < GenomeLen; ++i)
 				{
 					if (static_cast<uint8>(BestSoFar[i]) != TargetBytes[i]) { bEqual = false; break; }
+				}
+				// Periodic debug log of best candidate every 10 generations
+				if ((Gen % 10) == 0)
+				{
+					// Convert current best bytes (UTF-8) into a temporary null-terminated buffer for logging
+					TArray<ANSICHAR> Tmp;
+					Tmp.SetNumUninitialized(GenomeLen + 1);
+					FMemory::Memcpy(Tmp.GetData(), BestSoFar.GetData(), GenomeLen);
+					Tmp[GenomeLen] = '\0';
+					FString BestStr = UTF8_TO_TCHAR(Tmp.GetData());
+					UE_LOG(LogTemp, Display, TEXT("[GA Binary Test] Gen=%d BestFitness=%f Best=\"%s\""), Gen, BestFitnessLocal, *BestStr);
 				}
 				if (bEqual)
 				{
@@ -165,7 +194,8 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 				}
 			}
 
-			// 3) Selection → breeding → mutation → cleanup
+			// 3) Elite selection → tournament selection → breeding → mutation → cleanup
+			Elite->Update(0.0f);
 			Selection->Update(0.0f);
 			Breeder->Update(0.0f);
 			Mutator->Update(0.0f);

@@ -1,31 +1,47 @@
 ﻿//Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
 
 #include "Systems/EliteSelectionFloatSystem.h"
+#include "Components/GenomeComponents.h"
+#include "Components/EliteComponents.h"
 
-void UEliteSelectionFloatSystem::Update(float DeltaTime)
+
+bool UEliteSelectionFloatSystem::IsCandidate(entt::entity E, const FFitnessComponent& /*Fit*/) const
 {
-    Super::Update(DeltaTime);
-    
-    ApplySelectionFor<FGenomeFloatViewComponent, FEliteSolutionFloatComponent>();
+    return GetRegistry().all_of<FGenomeFloatViewComponent>(E);
 }
 
-void UEliteSelectionFloatSystem::SaveEliteGenome(entt::entity SourceEntity, entt::entity EliteEntity)
+void UEliteSelectionFloatSystem::CopyGenomeToElite(entt::entity Winner, entt::entity Elite, int32 /*FitnessIndex*/)
 {
     auto& Registry = GetRegistry();
-    const FGenomeFloatViewComponent& SrcComp = Registry.get<FGenomeFloatViewComponent>(SourceEntity);
-    FEliteSolutionFloatComponent& DstComp = Registry.get<FEliteSolutionFloatComponent>(EliteEntity);
 
-    const TArrayView<float>& Src = SrcComp.Values;
-    if (Src.Num() > 0)
+    const FGenomeFloatViewComponent& SrcView = Registry.get<FGenomeFloatViewComponent>(Winner);
+    const int32 Len = SrcView.Values.Num();
+
+    // Ensure owned storage on elite
+    FEliteOwnedFloatGenome* Owned = nullptr;
+    if (Registry.all_of<FEliteOwnedFloatGenome>(Elite))
     {
-        DstComp.Values.SetNum(Src.Num(), EAllowShrinking::No);
-        for (int32 i = 0; i < Src.Num(); ++i)
-        {
-            DstComp.Values[i] = Src[i];
-        }
+        Owned = &Registry.get<FEliteOwnedFloatGenome>(Elite);
     }
     else
     {
-        DstComp.Values.Reset();
+        Owned = &Registry.emplace<FEliteOwnedFloatGenome>(Elite);
     }
+    Owned->Values.SetNum(Len, EAllowShrinking::No);
+    if (Len > 0)
+    {
+        FMemory::Memcpy(Owned->Values.GetData(), SrcView.Values.GetData(), sizeof(float) * Len);
+    }
+
+    // Bind base view component to owned storage
+    FGenomeFloatViewComponent* EliteView = nullptr;
+    if (Registry.all_of<FGenomeFloatViewComponent>(Elite))
+    {
+        EliteView = &Registry.get<FGenomeFloatViewComponent>(Elite);
+    }
+    else
+    {
+        EliteView = &Registry.emplace<FGenomeFloatViewComponent>(Elite);
+    }
+    EliteView->Values = TArrayView<float>(Owned->Values.GetData(), Owned->Values.Num());
 }

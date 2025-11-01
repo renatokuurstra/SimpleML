@@ -9,7 +9,7 @@
 #include "EliteSelectionFloatSystem.generated.h"
 
 /**
- * Selects elites per fitness index for float genomes and copies their genomes into owning elite components.
+ * Selects and tags elites per fitness index for float genomes.
  */
 UCLASS()
 class GENETICALGORITHM_API UEliteSelectionFloatSystem : public UEliteSelectionBaseSystem
@@ -19,11 +19,9 @@ public:
 	UEliteSelectionFloatSystem()
 	{
 		RegisterComponent<FGenomeFloatViewComponent>();
-		RegisterComponent<FEliteSolutionFloatComponent>();
-		RegisterComponent<FEliteGroupIndex>();
 	}
 
 protected:
-	virtual void Update(float DeltaTime = 0.0f) override;
-	virtual void SaveEliteGenome(entt::entity SourceEntity, entt::entity EliteEntity) override;
+	virtual bool IsCandidate(entt::entity E, const FFitnessComponent& Fit) const override;
+	virtual void CopyGenomeToElite(entt::entity Winner, entt::entity Elite, int32 FitnessIndex) override;
 };

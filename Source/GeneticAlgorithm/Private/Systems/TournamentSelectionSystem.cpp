@@ -101,7 +101,8 @@ void UTournamentSelectionSystem::Update(float /*DeltaTime*/)
 	GlobalBucket.Reset();
 	int32 Order = 0;
 	{
-		auto PopView = GetView<FFitnessComponent>();
+		// Build a view that excludes entities with FResetGenomeComponent, as they cannot be selected for breeding
+		auto PopView = Registry.view<FFitnessComponent>(entt::exclude_t<FResetGenomeComponent>{});
 		for (auto Entity : PopView)
 		{
 			const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(Entity);
@@ -129,6 +130,7 @@ void UTournamentSelectionSystem::Update(float /*DeltaTime*/)
 			}
 			++Order;
 		}
+
 	}
 
 	// RNG setup

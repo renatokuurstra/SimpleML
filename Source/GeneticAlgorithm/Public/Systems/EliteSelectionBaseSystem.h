@@ -4,8 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "EcsSystem.h"
-#include "Components/GenomeComponents.h"
 #include "Components/EliteComponents.h"
+#include "Components/GenomeComponents.h" // Forward reference not needed, but keep if required by UHT elsewhere
 #include "EliteSelectionBaseSystem.generated.h"
 
 /**
@@ -26,10 +26,10 @@ UCLASS(Abstract)
 		GENERATED_BODY()
 		
 	public:
-		UEliteSelectionBaseSystem()
+  UEliteSelectionBaseSystem()
 		{
 			RegisterComponent<FFitnessComponent>();
-			RegisterComponent<FEliteGroupIndex>();
+			RegisterComponent<FEliteTagComponent>();
 		}
 
 		// Number of elites per fitness index to maintain. Treated as runtime parameter.
@@ -39,8 +39,19 @@ UCLASS(Abstract)
 		// If true, higher fitness is better.
 		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Selection|Elite")
 		bool bHigherIsBetter = true;
+		
+		// Drive selection each tick from the base; children only implement hooks.
+		virtual void Update(float DeltaTime = 0.0f) override
+		{
+			// UEcsSystem::Update is empty; directly invoke selection to avoid duplication in children.
+			ApplySelection();
+		}
+		
+		protected:
+		// Hooks for type-specific behavior (implemented by derived systems)
+		virtual bool IsCandidate(entt::entity E, const FFitnessComponent& Fit) const { return false; }
+		virtual void CopyGenomeToElite(entt::entity Winner, entt::entity Elite, int32 FitnessIndex) {}
 
-	protected:
 		// Internal pair used to track entity and its order for stable sorting.
 		struct FEntityFitness
 		{
@@ -74,84 +85,80 @@ UCLASS(Abstract)
 			if (OutIndices.Num() > N) { OutIndices.SetNum(N, EAllowShrinking::No); }
 		}
 
-		// Derived must copy the genome data from the source entity to the elite entity
-		virtual void SaveEliteGenome(entt::entity /*SourceEntity*/, entt::entity /*EliteEntity*/)
-		{
-			// Base does nothing; derived classes must override.
-		}
 
-		// Helper: Ensure there are at least DesiredCount elite entities for the given fitness index and component type.
-		template<typename TEliteComponent>
-		void EnsureEliteEntities(int32 FitnessIndex, int32 DesiredCount, TArray<entt::entity>& OutEntities)
+		// Helper: collect or create elite entities for a given fitness index.
+		// Reuses existing elites with FFitnessComponent.BuiltForFitnessIndex == FitnessIndex.
+		inline void GatherElitePool(int32 FitnessIndex, int32 DesiredCount, TArray<entt::entity>& OutEntities)
 		{
-			OutEntities.Reset();
 			auto& Registry = GetRegistry();
-			auto View = Registry.view<FEliteGroupIndex, TEliteComponent>();
-			for (auto Entity : View)
+			OutEntities.Reset();
+			// Reuse existing elites for this index
+			auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent>();
+			for (auto E : EliteView)
 			{
-				auto& Group = View.get<FEliteGroupIndex>(Entity);
-				if (Group.FitnessIndex == FitnessIndex)
+				const FFitnessComponent& Fit = EliteView.get<FFitnessComponent>(E);
+				if (Fit.BuiltForFitnessIndex == FitnessIndex)
 				{
-					OutEntities.Add(Entity);
-					if (OutEntities.Num() >= DesiredCount) { break; }
+					OutEntities.Add(E);
 				}
 			}
+			// Create missing elites
 			while (OutEntities.Num() < DesiredCount)
 			{
-				entt::entity E = Registry.create();
-				Registry.emplace<FEliteGroupIndex>(E, FEliteGroupIndex{FitnessIndex});
-				Registry.emplace<TEliteComponent>(E, TEliteComponent{});
-				OutEntities.Add(E);
+				const entt::entity NewE = Registry.create();
+				Registry.emplace<FEliteTagComponent>(NewE, FEliteTagComponent{});
+				FFitnessComponent NewFit{};
+				NewFit.BuiltForFitnessIndex = FitnessIndex;
+				NewFit.Fitness.SetNum(FitnessIndex + 1, EAllowShrinking::No);
+				Registry.emplace<FFitnessComponent>(NewE, MoveTemp(NewFit));
+				OutEntities.Add(NewE);
+			}
+			// Remove extras
+			if (OutEntities.Num() > DesiredCount)
+			{
+				for (int32 i = DesiredCount; i < OutEntities.Num(); ++i)
+				{
+					Registry.destroy(OutEntities[i]);
+				}
+				OutEntities.SetNum(DesiredCount, EAllowShrinking::No);
 			}
 		}
 
-		// Centralized, templated selection flow for a given genome view and elite component type.
-		template<typename TGenomeViewComponent, typename TEliteComponent>
-		void ApplySelectionFor()
+		// Centralized selection flow: compute top-N per fitness index and materialize elites as separate entities.
+		// Type-specific genome copying/binding is delegated to virtual hooks implemented by derived systems.
+		void ApplySelection()
 		{
-			// Source population size = number of entities with the genome view component
-			auto SourceView = GetView<TGenomeViewComponent, FFitnessComponent>();
-
-			// Reset reusable caches
+			auto& Registry = GetRegistry();
+			// Source: all non-elite entities that have fitness; derived systems decide if an entity is a valid candidate via IsCandidate
+			auto SourceView = Registry.view<FFitnessComponent>(entt::exclude_t<FEliteTagComponent>{});
+		
 			SelectionBuckets.Reset();
 			IndexScratch.Reset();
-
-			int32 Population = 0;
-			
-			// Stream once through the source view and bucket by fitness index
+		
+			// Stream all candidates into per-index buckets
 			int32 CurrentOrder = 0;
-			for (auto SourceEntity : SourceView)
+			for (auto Entity : SourceView)
 			{
-				Population++;
-				auto& Registry = GetRegistry();
-
-				const FFitnessComponent& FitnessComp = Registry.get<FFitnessComponent>(SourceEntity);
-				const int32 FitnessDims = FitnessComp.Fitness.Num();
-				
-				if (SelectionBuckets.Num() < FitnessDims)
-				{
-					SelectionBuckets.SetNum(FitnessDims);
-				}
-				for (int32 idx = 0; idx < FitnessDims; ++idx)
+				const FFitnessComponent& Fit = SourceView.get<FFitnessComponent>(Entity);
+				if (!IsCandidate(Entity, Fit)) { ++CurrentOrder; continue; }
+				const int32 Dims = Fit.Fitness.Num();
+				if (SelectionBuckets.Num() < Dims) { SelectionBuckets.SetNum(Dims); }
+				for (int32 idx = 0; idx < Dims; ++idx)
 				{
 					TArray<FEntityFitness>& Bucket = SelectionBuckets[idx];
 					FEntityFitness& Entry = Bucket.Emplace_GetRef();
-					Entry.Value = FitnessComp.Fitness[idx];
+					Entry.Value = Fit.Fitness[idx];
 					Entry.Order = CurrentOrder;
-					Entry.Entity = SourceEntity;
+					Entry.Entity = Entity;
 				}
 				++CurrentOrder;
 			}
-
-			// For each fitness index, select elites and copy genomes
+		
+			// For each fitness index, pick top-N and copy into elite-owned storage
 			for (int32 FitnessIndex = 0; FitnessIndex < SelectionBuckets.Num(); ++FitnessIndex)
 			{
 				TArray<FEntityFitness>& Bucket = SelectionBuckets[FitnessIndex];
-				if (Bucket.Num() == 0)
-				{
-					continue;
-				}
-
+				if (Bucket.Num() == 0) { continue; }
 				const int32 N = FMath::Clamp(EliteCount, 1, Bucket.Num());
 				IndexScratch.Reset(Bucket.Num());
 				for (int32 i = 0; i < Bucket.Num(); ++i) { IndexScratch.Add(i); }
@@ -167,21 +174,30 @@ UCLASS(Abstract)
 					{
 						if (VA != VB) return VA < VB;
 					}
-					return Bucket[A].Order < Bucket[B].Order; // stable tie-break by earlier order
+					return Bucket[A].Order < Bucket[B].Order;
 				});
 				if (IndexScratch.Num() > N) { IndexScratch.SetNum(N, EAllowShrinking::No); }
-
-				TArray<entt::entity> EliteEntities;
-				EnsureEliteEntities<TEliteComponent>(FitnessIndex, EliteCount, EliteEntities);
-
-				const int32 CopyCount = FMath::Min3(IndexScratch.Num(), Population, EliteEntities.Num());
-				for (int32 Rank = 0; Rank < CopyCount; ++Rank)
+				
+				// Ensure/reuse elite entities for this index
+				TArray<entt::entity> ElitePool;
+				GatherElitePool(FitnessIndex, N, ElitePool);
+				// Copy top winners into elite pool
+				for (int32 r = 0; r < N; ++r)
 				{
-					const entt::entity Src = Bucket[IndexScratch[Rank]].Entity;
-					const entt::entity DstElite = EliteEntities[Rank];
-					SaveEliteGenome(Src, DstElite);
+					const FEntityFitness& Winner = Bucket[IndexScratch[r]];
+					const entt::entity EliteE = ElitePool[r];
+					// Ensure elite has correct fitness component sizing and value
+					FFitnessComponent& EliteFit = Registry.get<FFitnessComponent>(EliteE);
+					if (EliteFit.Fitness.Num() < FitnessIndex + 1)
+					{
+						EliteFit.Fitness.SetNum(FitnessIndex + 1, EAllowShrinking::No);
+					}
+					EliteFit.Fitness[FitnessIndex] = Winner.Value;
+					EliteFit.BuiltForFitnessIndex = FitnessIndex;
+					
+					// Delegate type-specific genome copy/bind
+					CopyGenomeToElite(Winner.Entity, EliteE, FitnessIndex);
 				}
-				// Remaining elite entities (if any) are intentionally left unchanged.
 			}
 		}
 	};
