@@ -2,6 +2,8 @@
 
 SimpleML is an Unreal Engine plugin focused on lightweight, ECS-first machine learning utilities. It favors data-oriented design and stateless systems operating on POD-style component data.
 
+Important: The GeneticAlgorithm module implements a steady-state GA (not classic generational). This choice trades raw exploration speed for stability and the ability to accumulate fitness across multiple samplings — which is crucial when optimizing complex models like neural networks.
+
 ## Table of Contents
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -65,7 +67,9 @@ These systems are small, focused, and stateless; they operate purely on the prov
 
 ## Testing
 - A developer module `GeneticAlgorithmTests` exists to host CQTests. It depends on `GeneticAlgorithm`.
-- To add tests, place them under `Plugins/SimpleML/Source/GeneticAlgorithmTests` and mirror common setup/teardown using BEFORE_EACH/AFTER_EACH where possible.
+- The included example tests (e.g., byte/char target-string convergence) are intentionally simple and are typically better suited to a classic generational GA. Such problems often converge faster when the whole population is refreshed each generation.
+- We use a steady-state GA because the primary target is harder domains like neural networks (NNs), where fitness must be accumulated over multiple samplings/episodes to reduce variance and correctly estimate performance. Keeping individuals alive across updates makes that accumulation feasible and prevents degenerate reseeding each step.
+- To add your own tests, place them under `Plugins/SimpleML/Source/GeneticAlgorithmTests` and mirror common setup/teardown using `BEFORE_EACH`/`AFTER_EACH` where possible.
 
 ## Design Guidelines
 - Plugins-first architecture; minimal inter-plugin dependencies.
