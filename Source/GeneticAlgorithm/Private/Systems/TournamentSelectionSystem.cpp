@@ -5,7 +5,7 @@
 #include "Components/BreedingPairComponent.h"
 #include "Math/UnrealMathUtility.h"
 
-entt::entity UTournamentSelectionSystem::RunTournament(const TArray<FEntityRefFitness>& Bucket, FRandomStream* Rng)
+entt::entity UTournamentSelectionSystem::RunTournament(const TArray<FEntityRefFitness>& Bucket, FRandomStream* RngStream)
 {
 	const int32 Size = Bucket.Num();
 	if (Size <= 0)
@@ -21,7 +21,7 @@ entt::entity UTournamentSelectionSystem::RunTournament(const TArray<FEntityRefFi
 		ScratchIndices.Reserve(K);
 		for (int32 i = 0; i < K; ++i)
 		{
-			const int32 Pick = (Rng ? Rng->RandRange(0, Size - 1) : FMath::RandRange(0, Size - 1));
+			const int32 Pick = (RngStream ? RngStream->RandRange(0, Size - 1) : FMath::RandRange(0, Size - 1));
 			ScratchIndices.Add(Pick);
 		}
 	}
@@ -33,7 +33,7 @@ entt::entity UTournamentSelectionSystem::RunTournament(const TArray<FEntityRefFi
 		// Partial Fisher-Yates up to K
 		for (int32 i = 0; i < K; ++i)
 		{
-			const int32 SwapIdx = i + (Rng ? Rng->RandRange(0, Size - 1 - i) : FMath::RandRange(0, Size - 1 - i));
+			const int32 SwapIdx = i + (RngStream ? RngStream->RandRange(0, Size - 1 - i) : FMath::RandRange(0, Size - 1 - i));
 			ScratchIndices.Swap(i, SwapIdx);
 		}
 		ScratchIndices.SetNum(K, EAllowShrinking::No);
@@ -73,7 +73,7 @@ entt::entity UTournamentSelectionSystem::RunTournament(const TArray<FEntityRefFi
 	}
 
 	// Apply selection pressure
-	const bool PickBest = (SelectionPressure >= 1.0f) || ((Rng ? Rng->FRand() : FMath::FRand()) <= SelectionPressure);
+	const bool PickBest = (SelectionPressure >= 1.0f) || ((RngStream ? RngStream->FRand() : FMath::FRand()) <= SelectionPressure);
 	const int32 WinnerIdx = PickBest || Second == INDEX_NONE ? Best : Second;
 	return WinnerIdx != INDEX_NONE ? Bucket[WinnerIdx].Entity : entt::null;
 }
@@ -124,14 +124,14 @@ void UTournamentSelectionSystem::Update(float /*DeltaTime*/)
 
 	}
 
-	// RNG setup
-	FRandomStream Rng;
-	FRandomStream* RngPtr = nullptr;
-	if (RandomSeed != 0)
+	// RNG: seed once and advance across updates if RandomSeed != 0
+	if (!bRngSeeded && RandomSeed != 0)
 	{
 		Rng.Initialize(RandomSeed);
-		RngPtr = &Rng;
+		bRngSeeded = true;
+		bUseStream = true;
 	}
+	FRandomStream* RngPtr = bUseStream ? &Rng : nullptr;
 
 	// For each reset target, pick two parents according to group preference and cross-group chance
 	for (auto& Target : EntityResetView)

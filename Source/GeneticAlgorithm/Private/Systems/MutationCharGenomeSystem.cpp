@@ -10,20 +10,20 @@ void UMutationCharGenomeSystem::Update(float /*DeltaTime*/)
     auto& Registry = GetRegistry();
 
     // Iterate directly over entities with a char genome view
-    auto View = GetView<FGenomeCharViewComponent>();
+    auto View = GetView<FGenomeCharViewComponent, FResetGenomeComponent>();
     if (View.begin() == View.end())
     {
         return;
     }
 
-    // RNG: deterministic if RandomSeed != 0
-    FRandomStream Rng;
-    FRandomStream* RngPtr = nullptr;
-    if (RandomSeed != 0)
+    // RNG policy: seed once and advance across updates if RandomSeed != 0
+    if (!bRngSeeded && RandomSeed != 0)
     {
         Rng.Initialize(RandomSeed);
-        RngPtr = &Rng;
+        bRngSeeded = true;
+        bUseStream = true;
     }
+    FRandomStream* RngPtr = bUseStream ? &Rng : nullptr;
 
     // Sanitize probability
     const float P = FMath::Clamp(BitFlipProbability, 0.0f, 1.0f);

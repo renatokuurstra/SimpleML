@@ -32,8 +32,14 @@ public:
 	}
 
 	// Optional RNG seed for deterministic behavior (0 = use engine RNG)
+	// Seeding policy: if RandomSeed != 0, we seed once and advance across updates;
+	// do not reseed every tick to avoid degenerate identical outcomes.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Breeding|Char")
 	int32 RandomSeed = 0;
 
 	virtual void Update(float DeltaTime = 0.0f) override;
+private:
+	FRandomStream Rng;
+	bool bRngSeeded = false;
+	bool bUseStream = false;
 };

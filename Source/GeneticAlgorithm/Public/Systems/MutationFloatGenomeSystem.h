@@ -4,8 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "EcsSystem.h"
-#include "Components/GenomeComponents.h"
+#include "Math/RandomStream.h"
 #include "MutationFloatGenomeSystem.generated.h"
+
+struct FResetGenomeComponent;
+struct FGenomeFloatViewComponent;
 
 /**
  * Mutates float genomes in-place.
@@ -26,6 +29,7 @@ public:
 	UMutationFloatGenomeSystem()
 	{
 		RegisterComponent<FGenomeFloatViewComponent>();
+		RegisterComponent<FResetGenomeComponent>();
 	}
 
 	// ±X% multiplicative noise per float (default 2.5%)
@@ -48,8 +52,13 @@ public:
 	float RandomResetMax = 1.0f;
 
 	// Optional RNG seed for deterministic behavior (0 = use engine RNG)
+	// Seeding policy: if RandomSeed != 0, we seed once in Initialize/first Update and advance across updates; no reseed per tick.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Mutation")
 	int32 RandomSeed = 0;
 
-	virtual void Update(float DeltaTime = 0.0f) override;
+ virtual void Update(float DeltaTime = 0.0f) override;
+private:
+	FRandomStream Rng;
+	bool bRngSeeded = false;
+	bool bUseStream = false;
 };

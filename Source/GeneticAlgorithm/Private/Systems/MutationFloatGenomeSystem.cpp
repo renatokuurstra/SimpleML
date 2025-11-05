@@ -2,6 +2,7 @@
 
 #include "Systems/MutationFloatGenomeSystem.h"
 #include "Math/UnrealMathUtility.h"
+#include "Components/GenomeComponents.h"
 #include "Containers/Set.h"
 
 void UMutationFloatGenomeSystem::Update(float /*DeltaTime*/)
@@ -9,20 +10,20 @@ void UMutationFloatGenomeSystem::Update(float /*DeltaTime*/)
 	auto& Registry = GetRegistry();
 
 	// Iterate directly over entities with a float genome view
-	auto View = GetView<FGenomeFloatViewComponent>();
+	auto View = GetView<FGenomeFloatViewComponent, FResetGenomeComponent>();
 	if (View.begin() == View.end())
 	{
 		return;
 	}
 
-	// RNG: deterministic if RandomSeed != 0
-	FRandomStream Rng;
-	FRandomStream* RngPtr = nullptr;
-	if (RandomSeed != 0)
+	// RNG policy: seed once and advance across updates if RandomSeed != 0
+	if (!bRngSeeded && RandomSeed != 0)
 	{
 		Rng.Initialize(RandomSeed);
-		RngPtr = &Rng;
+		bRngSeeded = true;
+		bUseStream = true;
 	}
+	FRandomStream* RngPtr = bUseStream ? &Rng : nullptr;
 
 	// Sanitize parameters
 	const float DeltaPct = FMath::Max(0.0f, PerValueDeltaPercent);

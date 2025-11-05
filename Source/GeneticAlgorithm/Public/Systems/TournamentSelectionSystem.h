@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "EcsSystem.h"
+#include "Math/RandomStream.h"
 #include "TournamentSelectionSystem.generated.h"
 
 struct FFitnessComponent;
@@ -68,6 +69,11 @@ private:
 	mutable TArray<FEntityRefFitness> GlobalBucket;
 	mutable TArray<int32> ScratchIndices;
 
-	// Helper: run a tournament on a bucket and return winning entity, or entt::null
-	entt::entity RunTournament(const TArray<FEntityRefFitness>& Bucket, FRandomStream* Rng);
+	// RNG state (seed once, advance across updates)
+	FRandomStream Rng;
+	bool bRngSeeded = false;
+	bool bUseStream = false;
+
+ // Helper: run a tournament on a bucket and return winning entity, or entt::null
+	entt::entity RunTournament(const TArray<FEntityRefFitness>& Bucket, FRandomStream* RngStream);
 };

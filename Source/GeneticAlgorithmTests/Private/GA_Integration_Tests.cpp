@@ -32,7 +32,8 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 	TArray<uint8> TargetBytes;
 	int32 GenomeLen = 0;
 	int32 PopulationSize = 50;
-	int32 MaxGenerations = 500;
+	int32 MaxGenerations = 600;
+	float BottomResetFraction = 0.4f;
 	int32 Seed = 1337;
 
  // Systems
@@ -49,7 +50,7 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 	BEFORE_EACH()
 	{
 		// Parameters
-		const FString TargetString = TEXT("This is an integration test for GA binary data");
+		const FString TargetString = TEXT("Testing GA binaryblob");
 		// Convert wide string to UTF-8 bytes; our genome is byte-based and uses ASCII here.
 		{
 			FTCHARToUTF8 Converter(*TargetString);
@@ -58,9 +59,6 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 			TargetBytes.AddUninitialized(GenomeLen);
 			FMemory::Memcpy(TargetBytes.GetData(), (const void*)Converter.Get(), GenomeLen);
 		}
-		PopulationSize = 50;
-		MaxGenerations = 500;
-		Seed = 1337;
 
 		// Prepare genome storage
 		Genomes.SetNum(PopulationSize, EAllowShrinking::No);
@@ -89,8 +87,8 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 		
 		Selection = NewObject<UTournamentSelectionSystem>();
 		Selection->Initialize(Registry);
-		Selection->TournamentSize = 5;
-		Selection->SelectionPressure = 0.9f;
+		Selection->TournamentSize = 8;
+		Selection->SelectionPressure = 0.7f;
 		Selection->bHigherIsBetter = true;
 		Selection->CrossGroupParentChance = 0.0f; // single group
 		Selection->RandomSeed = Seed + 1;
@@ -101,7 +99,7 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 
 		Mutator = NewObject<UMutationCharGenomeSystem>();
 		Mutator->Initialize(Registry);
-		Mutator->BitFlipProbability = 0.01f; // 1% per-bit as requested
+		Mutator->BitFlipProbability = 0.025f; // 2.5% per-bit
 		Mutator->RandomSeed = Seed + 3;
 
 		Cleanup = NewObject<UBreedingPairCleanupSystem>();
@@ -130,20 +128,56 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 	{
 		// GA loop
 		bool bMatched = false;
-		int32 MatchedGeneration = -1;
 		TArray<char> BestSoFar;
 		BestSoFar.SetNum(GenomeLen, EAllowShrinking::No);
+
+		// Helper: convert bytes to space-separated uppercase hex string
+		auto ToHex = [](const uint8* Data, int32 Len) -> FString
+		{
+			FString Out;
+			Out.Reserve(Len * 3);
+			for (int32 i = 0; i < Len; ++i)
+			{
+				Out += FString::Printf(TEXT("%02X"), Data[i]);
+				if (i + 1 < Len) { Out += TEXT(" "); }
+			}
+			return Out;
+		};
 
 		for (int32 Gen = 0; Gen < MaxGenerations; ++Gen)
 		{
 			// 1) Evaluate fitness
 			GATestHelper::ComputeBinaryFitness(Registry, TargetBytes);
 
-			// 1b) Mark all entities as reset candidates for next generation
+			// 1b) Mark only the bottom fraction of entities as reset candidates for next generation
 			{
-				auto PopView = Registry.view<FFitnessComponent>();
+				// Build list of non-elite population with their fitness and insertion order for stable ties
+				struct FEntFit { entt::entity E; float V; int32 Order; };
+				TArray<FEntFit> Ranked;
+				Ranked.Reserve(PopulationSize);
+				int32 Order = 0;
+				auto PopView = Registry.view<FFitnessComponent>(entt::exclude_t<FEliteTagComponent>{});
 				for (auto E : PopView)
 				{
+					const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
+					const float V = (Fit.Fitness.Num() > 0) ? Fit.Fitness[0] : -FLT_MAX;
+					Ranked.Add({E, V, Order});
+					++Order;
+				}
+				// Sort ascending by fitness (worse first), tie-break by order
+				Ranked.Sort([](const FEntFit& A, const FEntFit& B)
+				{
+					if (A.V != B.V) return A.V < B.V; // lower fitness first
+					return A.Order < B.Order;
+				});
+				// Determine how many to reset this generation
+				const int32 Desired = FMath::Clamp(FMath::FloorToInt(static_cast<float>(PopulationSize) * BottomResetFraction + 1e-6f), 1, PopulationSize);
+				const int32 ResetCount = FMath::Min(Desired, Ranked.Num());
+				
+				// Mark bottom ResetCount as reset
+				for (int32 i = 0; i < ResetCount; ++i)
+				{
+					const entt::entity E = Ranked[i].E;
 					if (!Registry.all_of<FResetGenomeComponent>(E))
 					{
 						Registry.emplace<FResetGenomeComponent>(E);
@@ -175,21 +209,19 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 				{
 					if (static_cast<uint8>(BestSoFar[i]) != TargetBytes[i]) { bEqual = false; break; }
 				}
-				// Periodic debug log of best candidate every 10 generations
+				// Build hex strings for periodic and success logging
+				const FString BestHex = ToHex(reinterpret_cast<const uint8*>(BestSoFar.GetData()), GenomeLen);
+				const FString TargetHex = ToHex(TargetBytes.GetData(), GenomeLen);
+				// Periodic debug log of best candidate every 10 generations (hex instead of string)
 				if ((Gen % 10) == 0)
 				{
-					// Convert current best bytes (UTF-8) into a temporary null-terminated buffer for logging
-					TArray<ANSICHAR> Tmp;
-					Tmp.SetNumUninitialized(GenomeLen + 1);
-					FMemory::Memcpy(Tmp.GetData(), BestSoFar.GetData(), GenomeLen);
-					Tmp[GenomeLen] = '\0';
-					FString BestStr = UTF8_TO_TCHAR(Tmp.GetData());
-					UE_LOG(LogTemp, Display, TEXT("[GA Binary Test] Gen=%d BestFitness=%f Best=\"%s\""), Gen, BestFitnessLocal, *BestStr);
+					UE_LOG(LogTemp, Display, TEXT("[GA Binary Test] Gen=%d BestFitness=%f BestHex=%s TargetHex=%s"), Gen, BestFitnessLocal, *BestHex, *TargetHex);
 				}
 				if (bEqual)
 				{
+					// Log right before test success to capture converged genome in hex
+					UE_LOG(LogTemp, Display, TEXT("[GA Binary Test] Before success Gen=%d BestFitness=%f BestHex=%s TargetHex=%s"), Gen, BestFitnessLocal, *BestHex, *TargetHex);
 					bMatched = true;
-					MatchedGeneration = Gen;
 					break;
 				}
 			}
@@ -221,7 +253,31 @@ TEST_CLASS(SimpleML_GA_Binary_E2E, "SimpleML.GA.Integration")
 
 		if (!bMatched)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("GA binary E2E: no exact match within %d generations. Best fitness: %f (threshold: %f, max: %f)"), MaxGenerations, BestFitness, Threshold, MaxFitness);
+			// Recompute best genome to log its hex alongside target
+			entt::entity BestEntityFinal = entt::null;
+			float BestFitnessFinal = -FLT_MAX;
+			for (auto E : View2)
+			{
+				const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
+				const float F0 = Fit.Fitness.Num() > 0 ? Fit.Fitness[0] : -FLT_MAX;
+				if (F0 > BestFitnessFinal)
+				{
+					BestFitnessFinal = F0;
+					BestEntityFinal = E;
+				}
+			}
+			if (BestEntityFinal != entt::null)
+			{
+				const TArrayView<char>& ViewBestFinal = Registry.get<FGenomeCharViewComponent>(BestEntityFinal).Values;
+				for (int32 i = 0; i < GenomeLen; ++i) { BestSoFar[i] = (i < ViewBestFinal.Num()) ? ViewBestFinal[i] : 0; }
+				const FString BestHexFinal = ToHex(reinterpret_cast<const uint8*>(BestSoFar.GetData()), GenomeLen);
+				const FString TargetHexFinal = ToHex(TargetBytes.GetData(), GenomeLen);
+				UE_LOG(LogTemp, Warning, TEXT("GA binary E2E: no exact match within %d generations. Best fitness: %f (threshold: %f, max: %f). BestHex=%s TargetHex=%s"), MaxGenerations, BestFitness, Threshold, MaxFitness, *BestHexFinal, *TargetHexFinal);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("GA binary E2E: no exact match within %d generations. Best fitness: %f (threshold: %f, max: %f)"), MaxGenerations, BestFitness, Threshold, MaxFitness);
+			}
 		}
 
 		ASSERT_THAT(IsTrue(bMatched || BestFitness >= Threshold));

@@ -23,14 +23,14 @@ void UBreedCharGenomesSystem::Update(float /*DeltaTime*/)
         return;
     }
 
-    // RNG setup
-    FRandomStream Rng;
-    FRandomStream* RngPtr = nullptr;
-    if (RandomSeed != 0)
+    // RNG: seed once and advance across updates if RandomSeed != 0
+    if (!bRngSeeded && RandomSeed != 0)
     {
         Rng.Initialize(RandomSeed);
-        RngPtr = &Rng;
+        bRngSeeded = true;
+        bUseStream = true;
     }
+    FRandomStream* RngPtr = bUseStream ? &Rng : nullptr;
 
     auto PairIt = PairView.begin();
     const auto PairEnd = PairView.end();
