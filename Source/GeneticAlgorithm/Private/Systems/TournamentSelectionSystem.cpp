@@ -81,21 +81,12 @@ entt::entity UTournamentSelectionSystem::RunTournament(const TArray<FEntityRefFi
 void UTournamentSelectionSystem::Update(float /*DeltaTime*/)
 {
 	auto& Registry = GetRegistry();
-
-	// Build reset target list
-	ResetTargets.Reset();
+	auto EntityResetView = GetView<FFitnessComponent, FResetGenomeComponent>();
+	if (EntityResetView.size_hint() == 0)
 	{
-		auto ResetView = GetView<FFitnessComponent, FResetGenomeComponent>();
-		for (auto Entity : ResetView)
-		{
-			ResetTargets.Add(Entity);
-		}
+		return;
 	}
-	if (ResetTargets.Num() == 0)
-	{
-		return; // Nothing to do
-	}
-
+	
 	// Stream all candidates and bucket them by BuiltForFitnessIndex (and globally)
 	GroupBuckets.Reset();
 	GlobalBucket.Reset();
@@ -143,7 +134,7 @@ void UTournamentSelectionSystem::Update(float /*DeltaTime*/)
 	}
 
 	// For each reset target, pick two parents according to group preference and cross-group chance
-	for (entt::entity Target : ResetTargets)
+	for (auto& Target : EntityResetView)
 	{
 		const FFitnessComponent& TargetFit = Registry.get<FFitnessComponent>(Target);
 		const int32 Group = TargetFit.BuiltForFitnessIndex;

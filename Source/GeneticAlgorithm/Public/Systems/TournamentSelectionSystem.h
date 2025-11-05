@@ -64,7 +64,6 @@ private:
 	};
 
 	// Reusable caches to avoid per-tick allocations
-	mutable TArray<entt::entity> ResetTargets;
 	mutable TArray<TArray<FEntityRefFitness>> GroupBuckets; // indexed by fitness dimension
 	mutable TArray<FEntityRefFitness> GlobalBucket;
 	mutable TArray<int32> ScratchIndices;
