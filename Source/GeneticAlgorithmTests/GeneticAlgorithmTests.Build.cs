@@ -15,6 +15,7 @@ public class GeneticAlgorithmTests : ModuleRules
             "Engine",
             "UEcs",
             "GeneticAlgorithm",
+            "SimpleML",
             "CQTest"
         });
 

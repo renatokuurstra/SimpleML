@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Containers/ArrayView.h"
 THIRD_PARTY_INCLUDES_START
 #include "Dense"
 THIRD_PARTY_INCLUDES_END
@@ -58,9 +59,8 @@ private:
     // Layer topology information
     TArray<FNeuralNetworkLayerDescriptor> LayerDescriptors;
     
-    // Continuous memory storage for all weights and biases
-    TArray<T> WeightsData;
-    TArray<T> BiasesData;
+    // Single contiguous memory storage for all weights and biases (layer offsets point into this buffer)
+    TArray<T> Data;
     
     // Offset information for accessing layer data
 private:
@@ -86,10 +86,9 @@ public:
         LayerDescriptors = InLayerDescriptors;
         LayerLayouts.Reset();
         
-        int32 TotalWeights = 0;
-        int32 TotalBiases = 0;
+        int32 TotalData = 0;
 
-        // Calculate memory requirements for each layer
+        // Calculate memory requirements for each layer and assign offsets within a single contiguous buffer
         for (int32 i = 1; i < LayerDescriptors.Num(); ++i)
         {
             const int32 InputSize = LayerDescriptors[i - 1].NeuronCount;
@@ -100,22 +99,22 @@ public:
             Layout.InputSize = InputSize;
             Layout.OutputSize = OutputSize;
             Layout.LayerType = LayerType;
-            Layout.WeightsOffset = TotalWeights;
-            Layout.BiasesOffset = TotalBiases;
 
-            // Calculate weights and biases (feedforward only)
+            // Weights for this layer start at current TotalData
+            Layout.WeightsOffset = TotalData;
             Layout.WeightsCount = InputSize * OutputSize;
-            Layout.BiasesCount = OutputSize;
+            TotalData += Layout.WeightsCount;
 
-            TotalWeights += Layout.WeightsCount;
-            TotalBiases += Layout.BiasesCount;
+            // Biases immediately follow weights in the single buffer
+            Layout.BiasesOffset = TotalData;
+            Layout.BiasesCount = OutputSize;
+            TotalData += Layout.BiasesCount;
 
             LayerLayouts.Add(Layout);
         }
 
-        // Allocate continuous memory for all weights and biases
-        WeightsData.SetNumZeroed(TotalWeights);
-        BiasesData.SetNumZeroed(TotalBiases);
+        // Allocate single contiguous memory for all weights and biases
+        Data.SetNumZeroed(TotalData);
         
         InitializeWeights();
     }
@@ -138,14 +137,14 @@ public:
             for (int32 i = 0; i < Layout.WeightsCount; ++i)
             {
                 const int32 Index = Layout.WeightsOffset + i;
-                WeightsData[Index] = static_cast<T>(RandomStream.FRandRange(-1.0f, 1.0f) * StdDev);
+                Data[Index] = static_cast<T>(RandomStream.FRandRange(-1.0f, 1.0f) * StdDev);
             }
 
             // Initialize biases to small values
             for (int32 i = 0; i < Layout.BiasesCount; ++i)
             {
                 const int32 Index = Layout.BiasesOffset + i;
-                BiasesData[Index] = static_cast<T>(0.01);
+                Data[Index] = static_cast<T>(0.01);
             }
         }
     }
@@ -160,12 +159,12 @@ public:
             for (int32 i = 0; i < Layout.WeightsCount; ++i)
             {
                 const int32 Index = Layout.WeightsOffset + i;
-                WeightsData[Index] = static_cast<T>(RandomStream.FRandRange((float)Min, (float)Max));
+                Data[Index] = static_cast<T>(RandomStream.FRandRange((float)Min, (float)Max));
             }
             for (int32 i = 0; i < Layout.BiasesCount; ++i)
             {
                 const int32 Index = Layout.BiasesOffset + i;
-                BiasesData[Index] = static_cast<T>(RandomStream.FRandRange((float)Min, (float)Max));
+                Data[Index] = static_cast<T>(RandomStream.FRandRange((float)Min, (float)Max));
             }
         }
     }
@@ -178,11 +177,11 @@ public:
             const FLayerMemoryLayout& Layout = LayerLayouts[LayerIdx];
             for (int32 i = 0; i < Layout.WeightsCount; ++i)
             {
-                WeightsData[Layout.WeightsOffset + i] = Value;
+                Data[Layout.WeightsOffset + i] = Value;
             }
             for (int32 i = 0; i < Layout.BiasesCount; ++i)
             {
-                BiasesData[Layout.BiasesOffset + i] = Value;
+                Data[Layout.BiasesOffset + i] = Value;
             }
         }
     }
@@ -238,7 +237,7 @@ public:
         check(LayerIndex >= 0 && LayerIndex < LayerLayouts.Num());
         const FLayerMemoryLayout& Layout = LayerLayouts[LayerIndex];
         return Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(
-            &WeightsData[Layout.WeightsOffset],
+            &Data[Layout.WeightsOffset],
             Layout.OutputSize,
             Layout.InputSize
         );
@@ -255,7 +254,7 @@ public:
         const FLayerMemoryLayout& Layout = LayerLayouts[LayerIndex];
         
         return Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, 1>>(
-            &BiasesData[Layout.BiasesOffset],
+            &Data[Layout.BiasesOffset],
             Layout.BiasesCount
         );
     }
@@ -267,7 +266,7 @@ public:
      */
     Eigen::Matrix<T, Eigen::Dynamic, 1> Forward(const Eigen::Matrix<T, Eigen::Dynamic, 1>& Input)
     {
-        return TNeuron::template FeedforwardNetwork<T>(LayerLayouts, WeightsData, BiasesData, Input);
+        return TNeuron::template FeedforwardNetwork<T>(LayerLayouts, Data, Input);
     }
 
     /**
@@ -283,22 +282,30 @@ public:
     /**
      * Get total number of weights in the network
      */
-    int32 GetTotalWeightsCount() const { return WeightsData.Num(); }
+    int32 GetTotalWeightsCount() const {
+        int32 Sum = 0;
+        for (const FLayerMemoryLayout& L : LayerLayouts) { Sum += L.WeightsCount; }
+        return Sum;
+    }
 
     /**
      * Get total number of biases in the network
      */
-    int32 GetTotalBiasesCount() const { return BiasesData.Num(); }
+    int32 GetTotalBiasesCount() const {
+        int32 Sum = 0;
+        for (const FLayerMemoryLayout& L : LayerLayouts) { Sum += L.BiasesCount; }
+        return Sum;
+    }
 
     /**
-     * Get raw access to weights data (for serialization/deserialization)
+     * Unified contiguous parameter buffer access
      */
-    TArray<T>& GetWeightsData() { return WeightsData; }
-    const TArray<T>& GetWeightsData() const { return WeightsData; }
+    TArray<T>& GetData() { return Data; }
+    const TArray<T>& GetData() const { return Data; }
 
     /**
-     * Get raw access to biases data (for serialization/deserialization)
+     * Lightweight array views over the whole parameter buffer
      */
-    TArray<T>& GetBiasesData() { return BiasesData; }
-    const TArray<T>& GetBiasesData() const { return BiasesData; }
+    TArrayView<T> GetDataView() { return TArrayView<T>(Data.GetData(), Data.Num()); }
+    TArrayView<const T> GetDataView() const { return TArrayView<const T>(Data.GetData(), Data.Num()); }
 };

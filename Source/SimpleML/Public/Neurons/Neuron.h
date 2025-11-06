@@ -13,32 +13,26 @@ THIRD_PARTY_INCLUDES_END
 struct SIMPLEML_API FNeuron
 {
     // Basic feedforward neuron operation working directly on Eigen data.
+    // Activation: hyperbolic tangent (tanh) applied to ALL layers (hidden and output).
     template<typename T>
     static void Feedforward(
         const Eigen::Ref<const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>& Weights,
         const Eigen::Ref<const Eigen::Matrix<T, Eigen::Dynamic, 1>>& Biases,
         const Eigen::Ref<const Eigen::Matrix<T, Eigen::Dynamic, 1>>& Inputs,
-        Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> Outputs,
-        bool bApplyHiddenActivation)
+        Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> Outputs)
     {
-        // y = W*x + b
-        Outputs = Weights * Inputs + Biases;
-
-        // Hidden layers use ReLU; output layer stays linear for now.
-        if (bApplyHiddenActivation)
-        {
-            Outputs = Outputs.array().max(0);
-        }
+        // y = tanh(W*x + b)
+        Outputs = (Weights * Inputs + Biases).array().tanh().matrix();
     }
 
     // Map helpers: construct Eigen views over network memory.
     template<typename T>
     static Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> GetWeightMatrix(
-        const TArray<T>& WeightsData,
+        const TArray<T>& Data,
         const FLayerMemoryLayout& Layout)
     {
         return Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(
-            const_cast<T*>(&WeightsData[Layout.WeightsOffset]),
+            const_cast<T*>(&Data[Layout.WeightsOffset]),
             Layout.OutputSize,
             Layout.InputSize
         );
@@ -46,11 +40,11 @@ struct SIMPLEML_API FNeuron
 
     template<typename T>
     static Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, 1>> GetBiasVector(
-        const TArray<T>& BiasesData,
+        const TArray<T>& Data,
         const FLayerMemoryLayout& Layout)
     {
         return Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, 1>>(
-            const_cast<T*>(&BiasesData[Layout.BiasesOffset]),
+            const_cast<T*>(&Data[Layout.BiasesOffset]),
             Layout.BiasesCount
         );
     }
@@ -59,21 +53,19 @@ struct SIMPLEML_API FNeuron
     template<typename T>
     static Eigen::Matrix<T, Eigen::Dynamic, 1> FeedforwardNetwork(
         const TArray<FLayerMemoryLayout>& LayerLayouts,
-        const TArray<T>& WeightsData,
-        const TArray<T>& BiasesData,
+        const TArray<T>& Data,
         const Eigen::Ref<const Eigen::Matrix<T, Eigen::Dynamic, 1>>& Input)
     {
         Eigen::Matrix<T, Eigen::Dynamic, 1> Activation = Input;
         for (int32 LayerIdx = 0; LayerIdx < LayerLayouts.Num(); ++LayerIdx)
         {
             const auto& Layout = LayerLayouts[LayerIdx];
-            auto Weights = GetWeightMatrix<T>(WeightsData, Layout);
-            auto Biases = GetBiasVector<T>(BiasesData, Layout);
+            auto Weights = GetWeightMatrix<T>(Data, Layout);
+            auto Biases = GetBiasVector<T>(Data, Layout);
 
             Eigen::Matrix<T, Eigen::Dynamic, 1> Next;
             Next.resize(Layout.OutputSize);
-            const bool bHiddenLayer = (LayerIdx < LayerLayouts.Num() - 1);
-            Feedforward<T>(Weights, Biases, Activation, Next, bHiddenLayer);
+            Feedforward<T>(Weights, Biases, Activation, Next);
             Activation.swap(Next);
         }
         return Activation;
