@@ -18,7 +18,7 @@
 #include "Systems/BreedFloatGenomesSystem.h"
 #include "Systems/MutationCharGenomeSystem.h"
 #include "Systems/MutationFloatGenomeSystem.h"
-#include "Systems/BreedingPairCleanupSystem.h"
+#include "Systems/GACleanupSystem.h"
 
 // Local helpers for GA integration tests
 #include "Helpers/GATestHelper.h"
@@ -42,7 +42,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 
 	// Systems (char + float variants initialized every test; unused ones are harmless)
 	UTournamentSelectionSystem* Selection = nullptr;
-	UBreedingPairCleanupSystem* Cleanup = nullptr;
+ UGACleanupSystem* Cleanup = nullptr;
 
 	UEliteSelectionCharSystem* EliteChar = nullptr;
 	UBreedCharGenomesSystem* BreederChar = nullptr;
@@ -67,7 +67,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 		Selection->CrossGroupParentChance = 0.0f; // single group
 		Selection->RandomSeed = Seed + 1;
 
-		Cleanup = NewObject<UBreedingPairCleanupSystem>();
+  Cleanup = NewObject<UGACleanupSystem>();
 		Cleanup->Initialize(Registry);
 
 		// Initialize char systems
@@ -430,11 +430,12 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 		const float RMSE_Threshold = 0.02f;
 		ASSERT_THAT(IsTrue(bMatched || RMSE <= RMSE_Threshold));
 	}
+	
 	TEST_METHOD(Learns_Rectangle_Area_With_Tiny_NN)
 	{
 		// GA trains a tiny NN to approximate rectangle area using the SimpleML network and systems.
-		// Topology: [2 inputs] -> [1 hidden ReLU] -> [1 output]. Fitness = -SSE over a small dataset.
-		PopulationSize = 40;
+		// Topology: [2 inputs] -> [3 hidden ReLU] -> [1 output]. Fitness accumulates per-step: pow(1 - |yhat - x*y|, 3).
+		PopulationSize = 100;
 		BottomResetFraction = 0.35f;
 		MaxGenerations = 700; // steps
 
@@ -444,32 +445,19 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 		NNInit->Initialize(Registry);
 		NNForward->Initialize(Registry);
 
-		// Fixed training dataset (x, y) -> area = x*y. Keep values in [0, 1] for stability.
-		struct FSample { float X; float Y; float Target; };
-		TArray<FSample> Data;
-		{
-			TArray<FVector2f> Pairs = {
-				FVector2f(0.1f, 0.2f), FVector2f(0.3f, 0.7f), FVector2f(0.9f, 0.9f), FVector2f(0.8f, 0.4f),
-				FVector2f(0.5f, 0.5f), FVector2f(0.2f, 0.9f), FVector2f(0.95f, 0.15f), FVector2f(0.65f, 0.35f),
-				FVector2f(0.12f, 0.76f), FVector2f(0.42f, 0.58f), FVector2f(0.05f, 0.95f), FVector2f(0.77f, 0.22f)
-			};
-			Data.Reserve(Pairs.Num());
-			for (const auto& P : Pairs)
-			{
-				FSample S{ P.X, P.Y, P.X * P.Y };
-				Data.Add(S);
-			}
-		}
-
+		// Per-step randomized training samples (x, y) in [0,1]; area = x*y.
+		// Deterministic across runs by using a fixed seed.
+		FRandomStream RngSamples(Seed + 100);
+		TArray<FNeuralNetworkLayerDescriptor> Desc = {
+			FNeuralNetworkLayerDescriptor(2),
+			FNeuralNetworkLayerDescriptor(3),
+			FNeuralNetworkLayerDescriptor(1)
+		};
 		// Determine genome length from the SimpleML network memory layout for [2]->[1]->[1]
 		int32 GenomeLen = 0;
 		{
 			TNeuralNetwork<float, FNeuron> Tmp;
-			TArray<FNeuralNetworkLayerDescriptor> Desc = {
-				FNeuralNetworkLayerDescriptor(2),
-				FNeuralNetworkLayerDescriptor(1),
-				FNeuralNetworkLayerDescriptor(1)
-			};
+			
 			Tmp.Initialize(Desc);
 			GenomeLen = Tmp.GetTotalWeightsCount() + Tmp.GetTotalBiasesCount();
 		}
@@ -495,11 +483,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 
 				// SimpleML NN + IO
 				FNeuralNetworkFloat Net{};
-				TArray<FNeuralNetworkLayerDescriptor> Desc = {
-					FNeuralNetworkLayerDescriptor(2),
-					FNeuralNetworkLayerDescriptor(1),
-					FNeuralNetworkLayerDescriptor(1)
-				};
+				
 				Net.Initialize(Desc);
 				Registry.emplace<FNeuralNetworkFloat>(E, Net);
 				FNNInFLoatComp In{}; In.Values.SetNum(2); In.Values[0] = 0; In.Values[1] = 0; Registry.emplace<FNNInFLoatComp>(E, In);
@@ -545,8 +529,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 		};
 
 		bool bReached = false;
-		float BestSSE = TNumericLimits<float>::Max();
-		TArray<float> BestGenome; BestGenome.Init(0.0f, GenomeLen);
+		float BestFitnessEver = -FLT_MAX;
 
 		for (int32 Step = 0; Step < MaxGenerations; ++Step)
 		{
@@ -562,36 +545,30 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				MapGenomeToNetwork(NetComp, G);
 			}
 
-			// Accumulate SSE over dataset using the Feedforward system outputs
-			TArray<double> SSE; SSE.Init(0.0, PopulationSize);
-			for (const FSample& S : Data)
-			{
-				// Set the same input (x,y) for all entities
-				for (int32 i = 0; i < PopulationSize; ++i)
-				{
-					const entt::entity E = Entities[i];
-					FNNInFLoatComp& In = Registry.get<FNNInFLoatComp>(E);
-					In.Values[0] = S.X; In.Values[1] = S.Y;
-				}
-				// Run feedforward across the batch
-				NNForward->Update(0.0f);
-				// Read outputs and accumulate SSE
-				for (int32 i = 0; i < PopulationSize; ++i)
-				{
-					const entt::entity E = Entities[i];
-					const FNNOutFloatComp& Out = Registry.get<FNNOutFloatComp>(E);
-					const float y = (Out.Values.Num() > 0) ? Out.Values[0] : 0.0f;
-					const double d = static_cast<double>(y) - static_cast<double>(S.Target);
-					SSE[i] += d * d;
-				}
-			}
+			// Per-step random sample (x,y) in [0,1]
+			const float X = RngSamples.FRand();
+			const float Y = RngSamples.FRand();
+			const float Target = X * Y;
 
-			// Write fitness = -SSE
+			// Set inputs for all entities and evaluate
 			for (int32 i = 0; i < PopulationSize; ++i)
 			{
 				const entt::entity E = Entities[i];
+				FNNInFLoatComp& In = Registry.get<FNNInFLoatComp>(E);
+				In.Values[0] = X; In.Values[1] = Y;
+			}
+			NNForward->Update(0.0f);
+
+			// Accumulate fitness: += pow(1 - |yhat - target|, 3)
+			for (int32 i = 0; i < PopulationSize; ++i)
+			{
+				const entt::entity E = Entities[i];
+				const FNNOutFloatComp& Out = Registry.get<FNNOutFloatComp>(E);
+				const float YHat = (Out.Values.Num() > 0) ? Out.Values[0] : 0.0f;
+				const float Diff = FMath::Abs(YHat - Target);
+				const float Inc = FMath::Pow(1.0f - FMath::Clamp(Diff, 0.0f, 1.0f), 3.0f);
 				FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
-				Fit.Fitness[0] = static_cast<float>(-SSE[i]);
+				Fit.Fitness[0] += Inc; // accumulate
 				Fit.BuiltForFitnessIndex = 0;
 			}
 
@@ -633,17 +610,13 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			}
 			if (BestEntity != entt::null)
 			{
-				const float sse = -Registry.get<FFitnessComponent>(BestEntity).Fitness[0];
-				BestSSE = sse;
-				const TArrayView<float>& G = Registry.get<FGenomeFloatViewComponent>(BestEntity).Values;
-				for (int32 i = 0; i < GenomeLen; ++i) { BestGenome[i] = (i < G.Num()) ? G[i] : 0.0f; }
-				const float RMSE = FMath::Sqrt(BestSSE / static_cast<float>(Data.Num()));
+				if (BestFitnessLocal > BestFitnessEver) { BestFitnessEver = BestFitnessLocal; }
 				if ((Step % 25) == 0)
 				{
-					UE_LOG(LogTemp, Display, TEXT("[GA NN Area x SimpleML] Step=%d Best -SSE=%f RMSE=%.5f G0-4=[%.3f %.3f %.3f %.3f %.3f]"),
-						Step, BestFitnessLocal, RMSE, BestGenome.Num()>0?BestGenome[0]:0.0f, BestGenome.Num()>1?BestGenome[1]:0.0f, BestGenome.Num()>2?BestGenome[2]:0.0f, BestGenome.Num()>3?BestGenome[3]:0.0f, BestGenome.Num()>4?BestGenome[4]:0.0f);
+					UE_LOG(LogTemp, Display, TEXT("[GA NN Area x SimpleML] Step=%d BestAccumulatedFitness=%.3f of Max=%d"), Step, BestFitnessLocal, MaxGenerations);
 				}
-				if (RMSE <= 0.025f) { bReached = true; break; }
+				const float ThresholdAccum = 0.85f * static_cast<float>(MaxGenerations);
+				if (BestFitnessLocal >= ThresholdAccum) { bReached = true; break; }
 			}
 
 			// GA step using float systems
@@ -653,10 +626,19 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			MutatorFloat->Update(0.0f);
 			Cleanup->Update(0.0f);
 		}
-
-		const float FinalRMSE = FMath::Sqrt(BestSSE / static_cast<float>(Data.Num()));
-		ASSERT_THAT(IsTrue(bReached || FinalRMSE <= 0.03f));
-
+		
+		// Final evaluation and assertion based on accumulated fitness
+		float BestFitnessFinal = -FLT_MAX;
+		auto ViewFinal = Registry.view<FFitnessComponent, FGenomeFloatViewComponent>();
+		for (auto E : ViewFinal)
+		{
+			const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
+			const float F0 = Fit.Fitness.Num() > 0 ? Fit.Fitness[0] : -FLT_MAX;
+			if (F0 > BestFitnessFinal) { BestFitnessFinal = F0; }
+		}
+		const float AccumThreshold = 0.80f * static_cast<float>(MaxGenerations);
+		ASSERT_THAT(IsTrue(bReached || BestFitnessFinal >= AccumThreshold));
+		
 		// Cleanup NN systems
 		NNForward->Deinitialize();
 		NNInit->Deinitialize();

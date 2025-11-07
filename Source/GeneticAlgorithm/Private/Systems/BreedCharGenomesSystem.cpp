@@ -58,38 +58,38 @@ void UBreedCharGenomesSystem::Update(float /*DeltaTime*/)
             continue;
         }
 
-      		// Resolve parent genome views: accept either FGenomeCharViewComponent or FEliteSolutionCharComponent
-      		if (!Registry.all_of<FGenomeCharViewComponent>(ChildEntity))
-      		{
-      			UE_LOG(LogTemp, Warning, TEXT("BreedCharGenomesSystem: missing FGenomeCharViewComponent on child (reset index=%d)"), Index);
-      			continue;
-      		}
+			// Resolve parent genome views: accept either FGenomeCharViewComponent or FEliteSolutionCharComponent
+			if (!Registry.all_of<FGenomeCharViewComponent>(ChildEntity))
+			{
+				UE_LOG(LogTemp, Warning, TEXT("BreedCharGenomesSystem: missing FGenomeCharViewComponent on child (reset index=%d)"), Index);
+				continue;
+			}
 
-     			TOptional<TArrayView<const char>> MaybeA;
-     			TOptional<TArrayView<const char>> MaybeB;
+			TOptional<TArrayView<const char>> MaybeA;
+			TOptional<TArrayView<const char>> MaybeB;
 
-     			if (Registry.all_of<FGenomeCharViewComponent>(ParentA))
-     			{
-     				const FGenomeCharViewComponent& AViewComp = Registry.get<FGenomeCharViewComponent>(ParentA);
-     				MaybeA.Emplace(TArrayView<const char>(AViewComp.Values.GetData(), AViewComp.Values.Num()));
-     			}
+			if (Registry.all_of<FGenomeCharViewComponent>(ParentA))
+			{
+				const FGenomeCharViewComponent& AViewComp = Registry.get<FGenomeCharViewComponent>(ParentA);
+				MaybeA.Emplace(TArrayView<const char>(AViewComp.Values.GetData(), AViewComp.Values.Num()));
+			}
 
-     			if (Registry.all_of<FGenomeCharViewComponent>(ParentB))
-     			{
-     				const FGenomeCharViewComponent& BViewComp = Registry.get<FGenomeCharViewComponent>(ParentB);
-     				MaybeB.Emplace(TArrayView<const char>(BViewComp.Values.GetData(), BViewComp.Values.Num()));
-     			}
+			if (Registry.all_of<FGenomeCharViewComponent>(ParentB))
+			{
+				const FGenomeCharViewComponent& BViewComp = Registry.get<FGenomeCharViewComponent>(ParentB);
+				MaybeB.Emplace(TArrayView<const char>(BViewComp.Values.GetData(), BViewComp.Values.Num()));
+			}
 
-     			if (!MaybeA.IsSet() || !MaybeB.IsSet())
-     			{
-     				UE_LOG(LogTemp, Warning, TEXT("BreedCharGenomesSystem: missing genome on parent(s) (reset index=%d)"), Index);
-     				continue;
-     			}
+			if (!MaybeA.IsSet() || !MaybeB.IsSet())
+			{
+				UE_LOG(LogTemp, Warning, TEXT("BreedCharGenomesSystem: missing genome on parent(s) (reset index=%d)"), Index);
+				continue;
+			}
 
-     			FGenomeCharViewComponent& ChildViewComp = Registry.get<FGenomeCharViewComponent>(ChildEntity);
-     			TArrayView<const char> AView = MaybeA.GetValue();
-     			TArrayView<const char> BView = MaybeB.GetValue();
-     			TArrayView<char> CView = ChildViewComp.Values;
+			FGenomeCharViewComponent& ChildViewComp = Registry.get<FGenomeCharViewComponent>(ChildEntity);
+			TArrayView<const char> AView = MaybeA.GetValue();
+			TArrayView<const char> BView = MaybeB.GetValue();
+			TArrayView<char> CView = ChildViewComp.Values;
 
         const int32 GeneCount = FMath::Min3(AView.Num(), BView.Num(), CView.Num());
         if (GeneCount <= 0)
@@ -158,6 +158,18 @@ void UBreedCharGenomesSystem::Update(float /*DeltaTime*/)
         {
             const bool bPickA = (RngPtr ? (RngPtr->RandRange(0, 1) == 0) : (FMath::RandRange(0, 1) == 0));
             CView[i] = bPickA ? AView[i] : BView[i];
+        }
+
+        // Reset child's fitness when a new genome is produced
+        if (Registry.all_of<FFitnessComponent>(ChildEntity))
+        {
+            FFitnessComponent& Fit = Registry.get<FFitnessComponent>(ChildEntity);
+            if (Fit.Fitness.Num() == 0) { Fit.Fitness.SetNum(1, EAllowShrinking::No); }
+            for (int32 iFit = 0; iFit < Fit.Fitness.Num(); ++iFit) { Fit.Fitness[iFit] = 0.0f; }
+        }
+        else
+        {
+        	UE_LOG(LogTemp, Warning, TEXT("BreedCharGenomesSystem: missing FFitnessComponent on child (Entt id %d)"), static_cast<std::underlying_type_t<entt::entity>>(ChildEntity));
         }
     }
 

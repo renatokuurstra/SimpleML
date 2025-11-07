@@ -160,6 +160,18 @@ void UBreedFloatGenomesSystem::Update(float /*DeltaTime*/)
 			}
 			CView[g] = value;
 		}
+
+		// Reset child's fitness when a new genome is produced
+		if (Registry.all_of<FFitnessComponent>(ChildEntity))
+		{
+			FFitnessComponent& Fit = Registry.get<FFitnessComponent>(ChildEntity);
+			if (Fit.Fitness.Num() == 0) { Fit.Fitness.SetNum(1, EAllowShrinking::No); }
+			for (int32 iFit = 0; iFit < Fit.Fitness.Num(); ++iFit) { Fit.Fitness[iFit] = 0.0f; }
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("BreedFloatGenomesSystem: missing FFitnessComponent on child (Entt id %d)"), static_cast<std::underlying_type_t<entt::entity>>(ChildEntity));
+		}
 	}
 
 	// If any pairs remain unused, warn once
