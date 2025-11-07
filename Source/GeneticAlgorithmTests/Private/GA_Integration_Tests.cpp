@@ -39,6 +39,8 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 	int32 MaxGenerations = 600; // binary uses 600; float test can override locally if needed
 	float BottomResetFraction = 0.4f;
 	int32 Seed = 1337;
+	// Param: number of evaluation samples per generation for NN area test (accumulated per generation)
+	int32 SamplesPerGeneration = 8;
 
 	// Systems (char + float variants initialized every test; unused ones are harmless)
 	UTournamentSelectionSystem* Selection = nullptr;
@@ -229,7 +231,8 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				if (bEqual)
 				{
 					UE_LOG(LogTemp, Display, TEXT("[GA Binary Test] Before success Gen=%d BestFitness=%f BestHex=%s TargetHex=%s"), Gen, BestFitnessLocal, *BestHex, *TargetHex);
-					bMatched = true; break;
+					bMatched = true;
+					break;
 				}
 			}
 
@@ -241,43 +244,50 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			Cleanup->Update(0.0f);
 		}
 
-		// Final evaluation and assertion
-		GATestHelper::ComputeBinaryFitness(Registry, TargetBytes);
-		float BestFitness = -FLT_MAX;
-		auto View2 = Registry.view<FFitnessComponent, FGenomeCharViewComponent>();
-		for (auto E : View2)
+		// Final evaluation and assertion (early-out)
+		if (bMatched)
 		{
-			const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
-			const float F0 = Fit.Fitness.Num() > 0 ? Fit.Fitness[0] : -FLT_MAX;
-			if (F0 > BestFitness) { BestFitness = F0; }
+			ASSERT_THAT(IsTrue(true));
 		}
-		const float MaxBits = static_cast<float>(TargetBytes.Num() * 8);
-		const float MaxFitness = MaxBits * MaxBits;
-		const float Threshold = 0.95f * MaxFitness; // 95% of bits correct (squared)
-
-		if (BestFitness < Threshold)
+		else
 		{
-			// Log best genome in hex for diagnostics
-			entt::entity BestEntityFinal = entt::null;
-			float BestFitnessFinal = -FLT_MAX;
+			GATestHelper::ComputeBinaryFitness(Registry, TargetBytes);
+			float BestFitness = -FLT_MAX;
+			auto View2 = Registry.view<FFitnessComponent, FGenomeCharViewComponent>();
 			for (auto E : View2)
 			{
 				const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
 				const float F0 = Fit.Fitness.Num() > 0 ? Fit.Fitness[0] : -FLT_MAX;
-				if (F0 > BestFitnessFinal) { BestFitnessFinal = F0; BestEntityFinal = E; }
+				if (F0 > BestFitness) { BestFitness = F0; }
 			}
-			if (BestEntityFinal != entt::null)
+			const float MaxBits = static_cast<float>(TargetBytes.Num() * 8);
+			const float MaxFitness = MaxBits * MaxBits;
+			const float Threshold = 0.95f * MaxFitness; // 95% of bits correct (squared)
+			
+			if (BestFitness < Threshold)
 			{
-				TArray<char> BestSoFarFinal; BestSoFarFinal.SetNum(TargetBytes.Num(), EAllowShrinking::No);
-				const TArrayView<char>& ViewBestFinal = Registry.get<FGenomeCharViewComponent>(BestEntityFinal).Values;
-				for (int32 i = 0; i < TargetBytes.Num(); ++i) { BestSoFarFinal[i] = (i < ViewBestFinal.Num()) ? ViewBestFinal[i] : 0; }
-				const FString BestHexFinal = ToHex(reinterpret_cast<const uint8*>(BestSoFarFinal.GetData()), TargetBytes.Num());
-				const FString TargetHexFinal = ToHex(TargetBytes.GetData(), TargetBytes.Num());
-				UE_LOG(LogTemp, Warning, TEXT("GA binary E2E: Best fitness: %f (threshold: %f, max: %f). BestHex=%s TargetHex=%s"), BestFitness, Threshold, MaxFitness, *BestHexFinal, *TargetHexFinal);
+				// Log best genome in hex for diagnostics
+				entt::entity BestEntityFinal = entt::null;
+				float BestFitnessFinal = -FLT_MAX;
+				for (auto E : View2)
+				{
+					const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
+					const float F0 = Fit.Fitness.Num() > 0 ? Fit.Fitness[0] : -FLT_MAX;
+					if (F0 > BestFitnessFinal) { BestFitnessFinal = F0; BestEntityFinal = E; }
+				}
+				if (BestEntityFinal != entt::null)
+				{
+					TArray<char> BestSoFarFinal; BestSoFarFinal.SetNum(TargetBytes.Num(), EAllowShrinking::No);
+					const TArrayView<char>& ViewBestFinal = Registry.get<FGenomeCharViewComponent>(BestEntityFinal).Values;
+					for (int32 i = 0; i < TargetBytes.Num(); ++i) { BestSoFarFinal[i] = (i < ViewBestFinal.Num()) ? ViewBestFinal[i] : 0; }
+					const FString BestHexFinal = ToHex(reinterpret_cast<const uint8*>(BestSoFarFinal.GetData()), TargetBytes.Num());
+					const FString TargetHexFinal = ToHex(TargetBytes.GetData(), TargetBytes.Num());
+					UE_LOG(LogTemp, Warning, TEXT("GA binary E2E: Best fitness: %f (threshold: %f, max: %f). BestHex=%s TargetHex=%s"), BestFitness, Threshold, MaxFitness, *BestHexFinal, *TargetHexFinal);
+				}
 			}
+			
+			ASSERT_THAT(IsTrue(BestFitness >= Threshold));
 		}
-
-		ASSERT_THAT(IsTrue(BestFitness >= Threshold));
 	}
 
 	static float ComputeSSE(const TArrayView<float>& Values, const TArray<float>& Tgt)
@@ -399,7 +409,8 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				if (bWithinTol)
 				{
 					UE_LOG(LogTemp, Display, TEXT("[GA Float Test] Before success Gen=%d"), Gen);
-					bMatched = true; break;
+					bMatched = true;
+					break;
 				}
 			}
 
@@ -411,84 +422,112 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			Cleanup->Update(0.0f);
 		}
 
-		// Final evaluation and assertion
-		float BestSSE = FLT_MAX;
-		auto ViewF = Registry.view<FFitnessComponent, FGenomeFloatViewComponent>();
-		entt::entity BestEntityFinal = entt::null;
-		for (auto E : ViewF)
+		// Final evaluation and assertion (early success check)
+		if (bMatched)
 		{
-			const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
-			const float F0 = Fit.Fitness.Num() > 0 ? Fit.Fitness[0] : -FLT_MAX;
-			if (BestEntityFinal == entt::null || F0 > Registry.get<FFitnessComponent>(BestEntityFinal).Fitness[0]) { BestEntityFinal = E; }
+			ASSERT_THAT(IsTrue(true));
 		}
-		if (BestEntityFinal != entt::null)
+		else
 		{
-			const TArrayView<float>& V = Registry.get<FGenomeFloatViewComponent>(BestEntityFinal).Values;
-			BestSSE = ComputeSSE(V, Target);
+			float BestSSE = FLT_MAX;
+			auto ViewF = Registry.view<FFitnessComponent, FGenomeFloatViewComponent>();
+			entt::entity BestEntityFinal = entt::null;
+			for (auto E : ViewF)
+			{
+				const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
+				const float F0 = Fit.Fitness.Num() > 0 ? Fit.Fitness[0] : -FLT_MAX;
+				if (BestEntityFinal == entt::null || F0 > Registry.get<FFitnessComponent>(BestEntityFinal).Fitness[0]) { BestEntityFinal = E; }
+			}
+			if (BestEntityFinal != entt::null)
+			{
+				const TArrayView<float>& V = Registry.get<FGenomeFloatViewComponent>(BestEntityFinal).Values;
+				BestSSE = ComputeSSE(V, Target);
+			}
+			const float RMSE = FMath::Sqrt(BestSSE / 5.0f);
+			const float RMSE_Threshold = 0.02f;
+			ASSERT_THAT(IsTrue(RMSE <= RMSE_Threshold));
 		}
-		const float RMSE = FMath::Sqrt(BestSSE / 5.0f);
-		const float RMSE_Threshold = 0.02f;
-		ASSERT_THAT(IsTrue(bMatched || RMSE <= RMSE_Threshold));
 	}
 	
 	TEST_METHOD(Learns_Rectangle_Area_With_Tiny_NN)
 	{
 		// GA trains a tiny NN to approximate rectangle area using the SimpleML network and systems.
-		// Topology: [2 inputs] -> [3 hidden ReLU] -> [1 output]. Fitness accumulates per-step: pow(1 - |yhat - x*y|, 3).
-		PopulationSize = 100;
+		// Topology: [2 inputs] -> [3 hidden ReLU] -> [1 output]. Per-generation evaluation uses N samples; fitness accumulates within the generation: sum_j pow(1 - |yhat_j - x_j*y_j|, 3).
+		PopulationSize = 200;
 		BottomResetFraction = 0.35f;
-		MaxGenerations = 700; // steps
+		MaxGenerations = 7000; // steps
+		
+		// Initialize selection and cleanup (shared)
+		
+		Selection->TournamentSize = 12;
+		Selection->SelectionPressure = 0.9f;
 
+		// Initialize float systems
+		EliteFloat->EliteCount = 20;
+
+		MutatorFloat->PerValueDeltaPercent = 0.035f; // ±2.5% multiplicative
+		MutatorFloat->RandomMutationChance = 0.08f;  // occasional resets
+		MutatorFloat->RandomResetMaxPercent = 0.08f; // up to 5% weights reset when triggered
+		MutatorFloat->RandomResetMin = -1.0f;
+		MutatorFloat->RandomResetMax = 1.0f;
+
+		BreederFloat->Eta = 9.0f;
+		
 		// Systems under test: SimpleML NN init and feedforward
 		USimpleMLNNFloatInitSystem* NNInit = NewObject<USimpleMLNNFloatInitSystem>();
 		USimpleMLNNFloatFeedforwardSystem* NNForward = NewObject<USimpleMLNNFloatFeedforwardSystem>();
 		NNInit->Initialize(Registry);
 		NNForward->Initialize(Registry);
-
-		// Per-step randomized training samples (x, y) in [0,1]; area = x*y.
+		
+		// Randomized training samples (x, y) in [0.1, 1]; area = x*y.
 		// Deterministic across runs by using a fixed seed.
 		FRandomStream RngSamples(Seed + 100);
 		TArray<FNeuralNetworkLayerDescriptor> Desc = {
 			FNeuralNetworkLayerDescriptor(2),
-			FNeuralNetworkLayerDescriptor(3),
+			FNeuralNetworkLayerDescriptor(6),
+			FNeuralNetworkLayerDescriptor(6),
 			FNeuralNetworkLayerDescriptor(1)
 		};
-		// Determine genome length from the SimpleML network memory layout for [2]->[1]->[1]
+		// Determine genome length from the SimpleML network memory layout for [2]->[3]->[1]
 		int32 GenomeLen = 0;
 		{
 			TNeuralNetwork<float, FNeuron> Tmp;
-			
 			Tmp.Initialize(Desc);
 			GenomeLen = Tmp.GetTotalWeightsCount() + Tmp.GetTotalBiasesCount();
 		}
-
+		
 		// Build population: genome storage + NN + IO + fitness
-		TArray<TArray<float>> Genomes; Genomes.SetNum(PopulationSize, EAllowShrinking::No);
-		TArray<entt::entity> Entities; Entities.Reserve(PopulationSize);
+		TArray<TArray<float>> Genomes;
+		Genomes.SetNum(PopulationSize, EAllowShrinking::No);
+		TArray<entt::entity> Entities;
+		Entities.Reserve(PopulationSize);
 		{
 			FRandomStream Rng(Seed);
 			for (int32 i = 0; i < PopulationSize; ++i)
 			{
 				const entt::entity E = Registry.create();
 				Entities.Add(E);
-
+				
 				// GA comps
 				FGenomeFloatViewComponent ViewComp{};
 				FFitnessComponent Fit{};
 				Fit.Fitness.SetNum(1, EAllowShrinking::No);
-				Fit.Fitness[0] = 0.0f; // stores -SSE
+				Fit.Fitness[0] = 0.0f;
 				Fit.BuiltForFitnessIndex = 0;
 				Registry.emplace<FGenomeFloatViewComponent>(E, ViewComp);
 				Registry.emplace<FFitnessComponent>(E, Fit);
-
+				
 				// SimpleML NN + IO
 				FNeuralNetworkFloat Net{};
-				
 				Net.Initialize(Desc);
 				Registry.emplace<FNeuralNetworkFloat>(E, Net);
-				FNNInFLoatComp In{}; In.Values.SetNum(2); In.Values[0] = 0; In.Values[1] = 0; Registry.emplace<FNNInFLoatComp>(E, In);
-				FNNOutFloatComp Out{}; Out.Values.SetNum(1); Out.Values[0] = 0; Registry.emplace<FNNOutFloatComp>(E, Out);
-
+				FNNInFLoatComp In{};
+				In.Values.SetNum(2); In.Values[0] = 0; In.Values[1] = 0;
+				Registry.emplace<FNNInFLoatComp>(E, In);
+				FNNOutFloatComp Out{};
+				Out.Values.SetNum(1); Out.Values[0] = 0;
+				Registry.emplace<FNNOutFloatComp>(E, Out);
+				
 				// Backing storage for genome + view binding
 				TArray<float>& Storage = Genomes[i];
 				Storage.SetNum(GenomeLen, EAllowShrinking::No);
@@ -500,7 +539,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				Registry.get<FGenomeFloatViewComponent>(E).Values = TArrayView<float>(Storage.GetData(), Storage.Num());
 			}
 		}
-
+		
 		// Helper: write genome -> network memory using SimpleML Eigen views (row-major order)
 		auto MapGenomeToNetwork = [&](FNeuralNetworkFloat& NetComp, const TArrayView<float>& G)
 		{
@@ -527,15 +566,12 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				}
 			}
 		};
-
-		bool bReached = false;
-		float BestFitnessEver = -FLT_MAX;
-
+		
 		for (int32 Step = 0; Step < MaxGenerations; ++Step)
 		{
 			// Ensure networks have randomized weights and bIsInitialized set (once)
 			NNInit->Update(0.0f);
-
+			
 			// Map current genomes to network memory for all entities (keeps NN in sync with GA)
 			for (int32 i = 0; i < PopulationSize; ++i)
 			{
@@ -544,34 +580,52 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				const TArrayView<float>& G = Registry.get<FGenomeFloatViewComponent>(E).Values;
 				MapGenomeToNetwork(NetComp, G);
 			}
-
-			// Per-step random sample (x,y) in [0,1]
-			const float X = RngSamples.FRand();
-			const float Y = RngSamples.FRand();
-			const float Target = X * Y;
-
-			// Set inputs for all entities and evaluate
-			for (int32 i = 0; i < PopulationSize; ++i)
+			
+			// Reset fitness at the start of the generation (accumulate within this generation)
 			{
-				const entt::entity E = Entities[i];
-				FNNInFLoatComp& In = Registry.get<FNNInFLoatComp>(E);
-				In.Values[0] = X; In.Values[1] = Y;
+				auto ViewFitReset = Registry.view<FFitnessComponent>();
+				for (auto E : ViewFitReset)
+				{
+					FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
+					Fit.Fitness[0] = 0.0f;
+					Fit.BuiltForFitnessIndex = 0;
+				}
 			}
-			NNForward->Update(0.0f);
-
-			// Accumulate fitness: += pow(1 - |yhat - target|, 3)
-			for (int32 i = 0; i < PopulationSize; ++i)
+			
+			// Evaluate N random samples and accumulate fitness
+			for (int32 SampleIdx = 0; SampleIdx < SamplesPerGeneration; ++SampleIdx)
 			{
-				const entt::entity E = Entities[i];
-				const FNNOutFloatComp& Out = Registry.get<FNNOutFloatComp>(E);
-				const float YHat = (Out.Values.Num() > 0) ? Out.Values[0] : 0.0f;
-				const float Diff = FMath::Abs(YHat - Target);
-				const float Inc = FMath::Pow(1.0f - FMath::Clamp(Diff, 0.0f, 1.0f), 3.0f);
-				FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
-				Fit.Fitness[0] += Inc; // accumulate
-				Fit.BuiltForFitnessIndex = 0;
+				const float X = FMath::Lerp(0.1f, 1.0f, RngSamples.FRand());
+				const float Y = FMath::Lerp(0.1f, 1.0f, RngSamples.FRand());
+				const float Target = X * Y;
+				// Set inputs for all entities
+				for (int32 i = 0; i < PopulationSize; ++i)
+				{
+					const entt::entity E = Entities[i];
+					FNNInFLoatComp& In = Registry.get<FNNInFLoatComp>(E);
+					In.Values[0] = X; In.Values[1] = Y;
+				}
+				// Run forward pass for all
+				NNForward->Update(0.0f);
+				// Accumulate fitness and tag invalid outputs (exclude elites from tagging)
+				for (int32 i = 0; i < PopulationSize; ++i)
+				{
+					const entt::entity E = Entities[i];
+					const FNNOutFloatComp& Out = Registry.get<FNNOutFloatComp>(E);
+					ensure(Out.Values.Num() > 0);
+					const float NetworkOutput = Out.Values[0];
+					if (NetworkOutput < 0.0f && !Registry.all_of<FEliteTagComponent>(E))
+					{
+						if (!Registry.all_of<FResetGenomeComponent>(E)) { Registry.emplace<FResetGenomeComponent>(E); }
+					}
+					const float Diff = FMath::Abs(NetworkOutput - Target);
+					const float Score = FMath::Pow(1.0f - FMath::Clamp(Diff, 0.0f, 1.0f), 3.0f);
+					FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
+					if (Fit.Fitness.Num() < 1) { Fit.Fitness.SetNum(1, EAllowShrinking::No); }
+					Fit.Fitness[0] += Score;
+				}
 			}
-
+			
 			// Mark bottom fraction for reset (exclude elites)
 			{
 				struct FEntFit { entt::entity E; float V; int32 Order; };
@@ -598,8 +652,8 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 					if (!Registry.all_of<FResetGenomeComponent>(E)) { Registry.emplace<FResetGenomeComponent>(E); }
 				}
 			}
-
-			// Track best and maybe early stop
+			
+			// Track best (accumulated) and maybe early stop
 			float BestFitnessLocal = -FLT_MAX; entt::entity BestEntity = entt::null;
 			auto ViewBest = Registry.view<FFitnessComponent, FGenomeFloatViewComponent>();
 			for (auto E : ViewBest)
@@ -610,15 +664,12 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			}
 			if (BestEntity != entt::null)
 			{
-				if (BestFitnessLocal > BestFitnessEver) { BestFitnessEver = BestFitnessLocal; }
 				if ((Step % 25) == 0)
 				{
-					UE_LOG(LogTemp, Display, TEXT("[GA NN Area x SimpleML] Step=%d BestAccumulatedFitness=%.3f of Max=%d"), Step, BestFitnessLocal, MaxGenerations);
+					UE_LOG(LogTemp, Display, TEXT("[GA NN Area x SimpleML] Step=%d BestAccumulated=%.3f / N=%d"), Step, BestFitnessLocal, SamplesPerGeneration);
 				}
-				const float ThresholdAccum = 0.85f * static_cast<float>(MaxGenerations);
-				if (BestFitnessLocal >= ThresholdAccum) { bReached = true; break; }
 			}
-
+			
 			// GA step using float systems
 			EliteFloat->Update(0.0f);
 			Selection->Update(0.0f);
@@ -627,17 +678,57 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			Cleanup->Update(0.0f);
 		}
 		
-		// Final evaluation and assertion based on accumulated fitness
+		// Final evaluation and assertion based on accumulated fitness in last generation
 		float BestFitnessFinal = -FLT_MAX;
-		auto ViewFinal = Registry.view<FFitnessComponent, FGenomeFloatViewComponent>();
+		entt::entity BestEntityFinal = entt::null;
+		auto ViewFinal = Registry.view<FFitnessComponent, FGenomeFloatViewComponent, FNeuralNetworkFloat>();
 		for (auto E : ViewFinal)
 		{
 			const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
 			const float F0 = Fit.Fitness.Num() > 0 ? Fit.Fitness[0] : -FLT_MAX;
-			if (F0 > BestFitnessFinal) { BestFitnessFinal = F0; }
+			if (F0 > BestFitnessFinal) { BestFitnessFinal = F0; BestEntityFinal = E; }
 		}
-		const float AccumThreshold = 0.80f * static_cast<float>(MaxGenerations);
-		ASSERT_THAT(IsTrue(bReached || BestFitnessFinal >= AccumThreshold));
+
+		// Post-training validation: take the best solution and run 10 random checks.
+		// If any check exceeds 10% error vs expected area, fail the test.
+		if (BestEntityFinal != entt::null)
+		{
+			// Ensure the best entity's network reflects its genome
+			FNeuralNetworkFloat& BestNet = Registry.get<FNeuralNetworkFloat>(BestEntityFinal);
+			const TArrayView<float>& BestGenome = Registry.get<FGenomeFloatViewComponent>(BestEntityFinal).Values;
+			MapGenomeToNetwork(BestNet, BestGenome);
+
+			FRandomStream RngChecks(Seed + 10000);
+			bool bAllChecksUnder10Pct = true;
+			for (int32 CheckIdx = 0; CheckIdx < 10; ++CheckIdx)
+			{
+				const float X = FMath::Lerp(0.1f, 1.0f, RngChecks.FRand());
+				const float Y = FMath::Lerp(0.1f, 1.0f, RngChecks.FRand());
+				const float Target = X * Y;
+				// Set inputs for best entity
+				FNNInFLoatComp& InBest = Registry.get<FNNInFLoatComp>(BestEntityFinal);
+				InBest.Values[0] = X; InBest.Values[1] = Y;
+				// Run forward for all (cheap); we will read best entity's output
+				NNForward->Update(0.0f);
+				const FNNOutFloatComp& OutBest = Registry.get<FNNOutFloatComp>(BestEntityFinal);
+				const float YHat = OutBest.Values.Num() > 0 ? OutBest.Values[0] : 0.0f;
+				const float AbsErr = FMath::Abs(YHat - Target);
+				const float Den = FMath::Max(Target, 1e-3f);
+				const float ErrPct = (Den > 0.0f) ? (AbsErr / Den) : AbsErr; // relative except near zero target
+				UE_LOG(LogTemp, Display, TEXT("[GA NN Area x SimpleML][PostCheck %d/10] x=%.4f y=%.4f target=%.6f yhat=%.6f err%%=%.2f"),
+					CheckIdx + 1, X, Y, Target, YHat, ErrPct * 100.0f);
+				if (ErrPct > 0.10f)
+				{
+					bAllChecksUnder10Pct = false;
+				}
+			}
+			ASSERT_THAT(IsTrue(bAllChecksUnder10Pct));
+		}
+		else
+		{
+			// If we failed to identify a best entity, fail explicitly for visibility
+			ASSERT_THAT(IsTrue(false));
+		}
 		
 		// Cleanup NN systems
 		NNForward->Deinitialize();
