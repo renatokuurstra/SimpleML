@@ -5,6 +5,7 @@
 #include "VehicleTrainerConfig.h"
 #include "VehicleComponent.h"
 #include "Components/NNIOComponents.h"
+#include "Components/SplineComponent.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/World.h"
 
@@ -44,7 +45,16 @@ void UVehicleEntityFactory::Initialize(entt::registry& InRegistry)
 		SpawnParams.Owner = Context;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		
-		APawn* NewPawn = World->SpawnActor<APawn>(PawnClass, Context->GetActorLocation(), Context->GetActorRotation(), SpawnParams);
+		FVector SpawnLocation = Context->GetActorLocation();
+		FRotator SpawnRotation = Context->GetActorRotation();
+
+		if (USplineComponent* Spline = Context->GetCircuitSpline())
+		{
+			SpawnLocation = Spline->GetLocationAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);
+			SpawnRotation = Spline->GetRotationAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);
+		}
+
+		APawn* NewPawn = World->SpawnActor<APawn>(PawnClass, SpawnLocation, SpawnRotation, SpawnParams);
 
 		if (NewPawn)
 		{

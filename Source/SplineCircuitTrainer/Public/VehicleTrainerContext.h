@@ -24,7 +24,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	TObjectPtr<UVehicleTrainerConfig> TrainerConfig;
 
-protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
-	TObjectPtr<USplineComponent> CircuitSpline;
+	TObjectPtr<AActor> CircuitActor;
+
+	/** Helper function to retrieve the spline component from the CircuitActor */
+	UFUNCTION(BlueprintCallable, Category = "Trainer")
+	USplineComponent* GetCircuitSpline() const;
 };

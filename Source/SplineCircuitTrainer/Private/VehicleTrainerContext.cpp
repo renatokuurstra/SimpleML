@@ -8,3 +8,13 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 {
 	PrimaryActorTick.bCanEverTick = true;
 }
+
+USplineComponent* AVehicleTrainerContext::GetCircuitSpline() const
+{
+	if (!CircuitActor)
+	{
+		return nullptr;
+	}
+
+	return CircuitActor->FindComponentByClass<USplineComponent>();
+}
