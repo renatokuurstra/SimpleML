@@ -68,8 +68,12 @@ Key headers (under `Plugins/SimpleML/Source/GeneticAlgorithm/Public`):
   ### SplineCircuitTrainer
   - `AVehicleTrainerContext`: ECS context (AEcsContext) with references to a spline circuit and a trainer configuration.
   - `UVehicleTrainerConfig`: Data asset holding trainer settings like `VehiclePawnClass` and `Population`.
-  - `UVehicleEntityFactory`: ECS system that spawns pawns and creates entities based on the trainer configuration.
+  - `UVehicleEntityFactory`: ECS system that spawns pawns and creates entities based on the trainer configuration. Adds `FVehicleComponent`, `FNNInFLoatComp`, and `FNNOutFloatComp`.
   - `FVehicleComponent`: ECS component that stores a reference to the spawned pawn.
+
+### VehicleInterfaces Plugin
+- `IVehicleNNInterface`: Interface to be implemented by vehicle pawns to receive neural network outputs.
+  - `ApplyNNOutputs(const TArray<float>& Outputs)`: Applies NN control values to the vehicle.
 
 These systems are small, focused, and stateless; they operate purely on the provided component data.
 

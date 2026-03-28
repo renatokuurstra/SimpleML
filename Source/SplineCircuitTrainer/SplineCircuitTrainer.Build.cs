@@ -13,7 +13,8 @@ public class SplineCircuitTrainer : ModuleRules
             "Core",
             "CoreUObject",
             "Engine",
-            "UEcs"
+            "UEcs",
+            "SimpleML"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[]

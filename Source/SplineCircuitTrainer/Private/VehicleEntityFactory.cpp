@@ -4,12 +4,15 @@
 #include "VehicleTrainerContext.h"
 #include "VehicleTrainerConfig.h"
 #include "VehicleComponent.h"
+#include "Components/NNIOComponents.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/World.h"
 
 UVehicleEntityFactory::UVehicleEntityFactory()
 {
 	RegisterComponent<FVehicleComponent>();
+	RegisterComponent<FNNInFLoatComp>();
+	RegisterComponent<FNNOutFloatComp>();
 }
 
 void UVehicleEntityFactory::Initialize(entt::registry& InRegistry)
@@ -47,6 +50,10 @@ void UVehicleEntityFactory::Initialize(entt::registry& InRegistry)
 		{
 			// Add VehicleComponent to entity with pawn reference
 			InRegistry.emplace<FVehicleComponent>(Entity, NewPawn);
+
+			// Add NN Input and Output components
+			InRegistry.emplace<FNNInFLoatComp>(Entity);
+			InRegistry.emplace<FNNOutFloatComp>(Entity);
 		}
 	}
 }
