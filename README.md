@@ -42,6 +42,8 @@ SimpleML currently provides the following modules:
 - `SimpleML` (Runtime): Base module for shared ML scaffolding.
 - `GeneticAlgorithm` (Runtime): Systems and components for genome representation, breeding, selection, and mutation.
 - `GeneticAlgorithmTests` (Developer): Test/experimental code that depends on `GeneticAlgorithm`.
+- `SplineCircuitTrainer` (Runtime): ECS context for training vehicles on a spline circuit.
+- `SplineCircuitTrainerTests` (Developer): Tests for the SplineCircuitTrainer module.
 
 ## Usage Basics
 - ECS-first: author systems deriving from `UEcsSystem` and operate on simple component data.
@@ -62,6 +64,9 @@ Key headers (under `Plugins/SimpleML/Source/GeneticAlgorithm/Public`):
   - `Systems/EliteSelectionFloatSystem.h`
   - `Systems/MutationFloatGenomeSystem.h`
   - `Systems/MutationCharGenomeSystem.h`
+
+  ### SplineCircuitTrainer
+  - `AVehicleTrainer`: ECS context (AEcsContext) with references to a spline circuit and a vehicle pawn.
 
 These systems are small, focused, and stateless; they operate purely on the provided component data.
 

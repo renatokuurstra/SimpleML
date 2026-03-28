@@ -29,6 +29,16 @@
       "Name": "GeneticAlgorithmTests",
       "Type": "DeveloperTool",
       "LoadingPhase": "Default"
+    },
+    {
+      "Name": "SplineCircuitTrainer",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    },
+    {
+      "Name": "SplineCircuitTrainerTests",
+      "Type": "DeveloperTool",
+      "LoadingPhase": "Default"
     }
   ],
   "Plugins": [
