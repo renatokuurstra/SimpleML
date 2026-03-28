@@ -66,7 +66,10 @@ Key headers (under `Plugins/SimpleML/Source/GeneticAlgorithm/Public`):
   - `Systems/MutationCharGenomeSystem.h`
 
   ### SplineCircuitTrainer
-  - `AVehicleTrainer`: ECS context (AEcsContext) with references to a spline circuit and a vehicle pawn.
+  - `AVehicleTrainerContext`: ECS context (AEcsContext) with references to a spline circuit and a trainer configuration.
+  - `UVehicleTrainerConfig`: Data asset holding trainer settings like `VehiclePawnClass` and `Population`.
+  - `UVehicleEntityFactory`: ECS system that spawns pawns and creates entities based on the trainer configuration.
+  - `FVehicleComponent`: ECS component that stores a reference to the spawned pawn.
 
 These systems are small, focused, and stateless; they operate purely on the provided component data.
 
