@@ -18,7 +18,7 @@ struct FGenomeCharViewComponent;
  *
  * Stateless; only requires FGenomeCharViewComponent.
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable, EditInlineNew)
 class GENETICALGORITHM_API UMutationCharGenomeSystem : public UEcsSystem
 {
 	GENERATED_BODY()

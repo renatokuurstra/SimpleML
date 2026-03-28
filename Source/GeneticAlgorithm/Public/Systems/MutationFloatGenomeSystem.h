@@ -21,7 +21,7 @@ struct FGenomeFloatViewComponent;
  *
  * Stateless; only requires FGenomeFloatViewComponent.
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable, EditInlineNew)
 class GENETICALGORITHM_API UMutationFloatGenomeSystem : public UEcsSystem
 {
 	GENERATED_BODY()

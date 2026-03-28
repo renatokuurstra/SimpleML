@@ -20,8 +20,8 @@
  *		- Ensure that if we already have the elite entity, we don't copy it over.
  *			- Right now, we copy NumElite * NumFitnesses every time we keep the elites.
  */
-UCLASS(Abstract)
-	class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
+UCLASS(Abstract, BlueprintType, Blueprintable, EditInlineNew)
+class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 	{
 		GENERATED_BODY()
 		

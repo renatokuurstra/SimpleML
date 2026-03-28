@@ -10,7 +10,7 @@
  * UVehicleEntityFactory
  * System that spawns pawns and creates ECS entities for them.
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable, EditInlineNew)
 class SPLINECIRCUITTRAINER_API UVehicleEntityFactory : public UEcsSystem
 {
 	GENERATED_BODY()

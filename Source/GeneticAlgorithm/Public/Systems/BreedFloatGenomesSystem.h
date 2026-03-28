@@ -18,7 +18,7 @@
  * - This system does not destroy FBreedingPairComponent entities; use UBreedingPairCleanupSystem after it.
 * - Iterates directly over views (no per-tick caches) and consumes one FBreedingPair per reset entity.
 */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable, EditInlineNew)
 class GENETICALGORITHM_API UBreedFloatGenomesSystem : public UEcsSystem
 {
 	GENERATED_BODY()

@@ -17,7 +17,7 @@ struct FBreedingPairComponent;
  * Why: Select parents by sampling small tournaments over fitness values.
  * Stateless; operates only on component data.
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable, EditInlineNew)
 class GENETICALGORITHM_API UTournamentSelectionSystem : public UEcsSystem
 {
 	GENERATED_BODY()

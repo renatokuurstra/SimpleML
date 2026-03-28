@@ -12,7 +12,7 @@
  * - Destroys all transient entities that carry FBreedingPairComponent.
  * - Removes FResetGenomeComponent tags from entities so the user can re-apply them next generation.
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable, EditInlineNew)
 class GENETICALGORITHM_API UGACleanupSystem : public UEcsSystem
 {
 	GENERATED_BODY()

@@ -11,7 +11,7 @@
 /**
  * Selects and tags elites per fitness index for float genomes.
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable, EditInlineNew)
 class GENETICALGORITHM_API UEliteSelectionFloatSystem : public UEliteSelectionBaseSystem
 {
 	GENERATED_BODY()

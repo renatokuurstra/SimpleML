@@ -19,7 +19,7 @@
  * Notes:
  * - This system does not destroy FBreedingPairComponent entities; use UBreedingPairCleanupSystem afterwards.
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable, EditInlineNew)
 class GENETICALGORITHM_API UBreedCharGenomesSystem : public UEcsSystem
 {
 	GENERATED_BODY()

@@ -16,6 +16,11 @@
   "Installed": false,
   "Modules": [
     {
+      "Name": "SimpleMLInterfaces",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    },
+    {
       "Name": "SimpleML",
       "Type": "Runtime",
       "LoadingPhase": "Default"

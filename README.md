@@ -39,6 +39,7 @@ Important: The GeneticAlgorithm module implements a steady-state GA (not classic
 
 ## Modules
 SimpleML currently provides the following modules:
+- `SimpleMLInterfaces` (Runtime): Minimal interfaces for ML-controlled entities.
 - `SimpleML` (Runtime): Base module for shared ML scaffolding.
 - `GeneticAlgorithm` (Runtime): Systems and components for genome representation, breeding, selection, and mutation.
 - `GeneticAlgorithmTests` (Developer): Test/experimental code that depends on `GeneticAlgorithm`.
@@ -56,6 +57,9 @@ SimpleML currently provides the following modules:
   - Mutation: `UMutationFloatGenomeSystem` (per-value ±X% noise, optional random resets)
 
 ## Public API (overview)
+Key headers (under `Plugins/SimpleML/Source/SimpleMLInterfaces/Public`):
+- `VehicleNNInterface.h`: Defines `ISimpleMLVehicleNNInterface`.
+
 Key headers (under `Plugins/SimpleML/Source/GeneticAlgorithm/Public`):
 - Components: `Components/GenomeComponents.h`
 - Systems:
@@ -71,8 +75,8 @@ Key headers (under `Plugins/SimpleML/Source/GeneticAlgorithm/Public`):
   - `UVehicleEntityFactory`: ECS system that spawns pawns and creates entities based on the trainer configuration. Adds `FVehicleComponent`, `FNNInFLoatComp`, and `FNNOutFloatComp`.
   - `FVehicleComponent`: ECS component that stores a reference to the spawned pawn.
 
-### VehicleInterfaces Plugin
-- `IVehicleNNInterface`: Interface to be implemented by vehicle pawns to receive neural network outputs.
+### SimpleMLInterfaces
+- `ISimpleMLVehicleNNInterface`: Interface to be implemented by vehicle pawns to receive neural network outputs.
   - `ApplyNNOutputs(const TArray<float>& Outputs)`: Applies NN control values to the vehicle.
 
 These systems are small, focused, and stateless; they operate purely on the provided component data.

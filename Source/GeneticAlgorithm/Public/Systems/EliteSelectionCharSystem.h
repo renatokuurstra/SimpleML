@@ -10,7 +10,7 @@
 /**
  * Selects and tags elites per fitness index for char/byte genomes.
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable, EditInlineNew)
 class GENETICALGORITHM_API UEliteSelectionCharSystem : public UEliteSelectionBaseSystem
 {
 	GENERATED_BODY()
