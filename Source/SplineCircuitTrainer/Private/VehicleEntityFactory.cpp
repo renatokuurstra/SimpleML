@@ -16,11 +16,11 @@ UVehicleEntityFactory::UVehicleEntityFactory()
 	RegisterComponent<FNNOutFloatComp>();
 }
 
-void UVehicleEntityFactory::Initialize(entt::registry& InRegistry)
+void UVehicleEntityFactory::Initialize(AEcsContext* InContext, entt::registry& InRegistry)
 {
-	Super::Initialize(InRegistry);
+	Super::Initialize(InContext, InRegistry);
 
-	AVehicleTrainerContext* Context = GetTypedOuter<AVehicleTrainerContext>();
+	AVehicleTrainerContext* Context = Cast<AVehicleTrainerContext>(InContext);
 	if (!Context || !Context->TrainerConfig || !Context->TrainerConfig->VehiclePawnClass)
 	{
 		return;

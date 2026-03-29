@@ -17,6 +17,6 @@ class SPLINECIRCUITTRAINER_API UVehicleEntityFactory : public UEcsSystem
 
 public:
 	UVehicleEntityFactory();
-
-	virtual void Initialize(entt::registry& InRegistry) override;
+	
+	virtual void Initialize(AEcsContext* InContext, entt::registry& InRegistry) override;
 };
