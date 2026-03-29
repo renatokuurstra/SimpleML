@@ -44,7 +44,7 @@ TEST_CLASS(SimpleML_GA_MutationChar_Tests, "SimpleML.GA.MutationChar")
 
 		// Create and configure mutator
 		Mutator = NewObject<UMutationCharGenomeSystem>();
-		Mutator->Initialize(Registry);
+		Mutator->Initialize(nullptr, Registry);
 		Mutator->BitFlipProbability = 0.20f; // 20%
 		Mutator->RandomSeed = 42; // deterministic
 	}

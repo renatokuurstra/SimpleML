@@ -20,20 +20,20 @@ void UVehicleEntityFactory::Initialize(AEcsContext* InContext, entt::registry& I
 {
 	Super::Initialize(InContext, InRegistry);
 
-	AVehicleTrainerContext* Context = Cast<AVehicleTrainerContext>(InContext);
-	if (!Context || !Context->TrainerConfig || !Context->TrainerConfig->VehiclePawnClass)
+	AVehicleTrainerContext* TrainerContext = Cast<AVehicleTrainerContext>(InContext);
+	if (!TrainerContext || !TrainerContext->TrainerConfig || !TrainerContext->TrainerConfig->VehiclePawnClass)
 	{
 		return;
 	}
 
-	UWorld* World = Context->GetWorld();
+	UWorld* World = TrainerContext->GetWorld();
 	if (!World)
 	{
 		return;
 	}
 
-	int32 Population = Context->TrainerConfig->Population;
-	TSubclassOf<APawn> PawnClass = Context->TrainerConfig->VehiclePawnClass;
+	int32 Population = TrainerContext->TrainerConfig->Population;
+	TSubclassOf<APawn> PawnClass = TrainerContext->TrainerConfig->VehiclePawnClass;
 
 	for (int32 i = 0; i < Population; ++i)
 	{
@@ -42,13 +42,13 @@ void UVehicleEntityFactory::Initialize(AEcsContext* InContext, entt::registry& I
 
 		// Spawn Pawn
 		FActorSpawnParameters SpawnParams;
-		SpawnParams.Owner = Context;
+		SpawnParams.Owner = TrainerContext;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		
-		FVector SpawnLocation = Context->GetActorLocation();
-		FRotator SpawnRotation = Context->GetActorRotation();
+		FVector SpawnLocation = TrainerContext->GetActorLocation();
+		FRotator SpawnRotation = TrainerContext->GetActorRotation();
 
-		if (USplineComponent* Spline = Context->GetCircuitSpline())
+		if (USplineComponent* Spline = TrainerContext->GetCircuitSpline())
 		{
 			SpawnLocation = Spline->GetLocationAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);
 			SpawnRotation = Spline->GetRotationAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);

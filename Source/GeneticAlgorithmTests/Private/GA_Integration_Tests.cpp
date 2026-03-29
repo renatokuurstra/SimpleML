@@ -62,7 +62,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 	{
 		// Initialize selection and cleanup (shared)
 		Selection = NewObject<UTournamentSelectionSystem>();
-		Selection->Initialize(Registry);
+		Selection->Initialize(nullptr, Registry);
 		Selection->TournamentSize = 8;
 		Selection->SelectionPressure = 0.7f;
 		Selection->bHigherIsBetter = true;
@@ -70,35 +70,35 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 		Selection->RandomSeed = Seed + 1;
 
   Cleanup = NewObject<UGACleanupSystem>();
-		Cleanup->Initialize(Registry);
+		Cleanup->Initialize(nullptr, Registry);
 
 		// Initialize char systems
 		EliteChar = NewObject<UEliteSelectionCharSystem>();
-		EliteChar->Initialize(Registry);
+		EliteChar->Initialize(nullptr, Registry);
 		EliteChar->EliteCount = 3;
 		EliteChar->bHigherIsBetter = true;
 
 		BreederChar = NewObject<UBreedCharGenomesSystem>();
-		BreederChar->Initialize(Registry);
+		BreederChar->Initialize(nullptr, Registry);
 		BreederChar->RandomSeed = Seed + 2;
 
 		MutatorChar = NewObject<UMutationCharGenomeSystem>();
-		MutatorChar->Initialize(Registry);
+		MutatorChar->Initialize(nullptr, Registry);
 		MutatorChar->BitFlipProbability = 0.025f; // 2.5% per-bit
 		MutatorChar->RandomSeed = Seed + 3;
 
 		// Initialize float systems
 		EliteFloat = NewObject<UEliteSelectionFloatSystem>();
-		EliteFloat->Initialize(Registry);
+		EliteFloat->Initialize(nullptr, Registry);
 		EliteFloat->EliteCount = 3;
 		EliteFloat->bHigherIsBetter = true; // using negative SSE as fitness
 
 		BreederFloat = NewObject<UBreedFloatGenomesSystem>();
-		BreederFloat->Initialize(Registry);
+		BreederFloat->Initialize(nullptr, Registry);
 		BreederFloat->RandomSeed = Seed + 12;
 
 		MutatorFloat = NewObject<UMutationFloatGenomeSystem>();
-		MutatorFloat->Initialize(Registry);
+		MutatorFloat->Initialize(nullptr, Registry);
 		MutatorFloat->PerValueDeltaPercent = 0.025f; // ±2.5% multiplicative
 		MutatorFloat->RandomMutationChance = 0.05f;  // occasional resets
 		MutatorFloat->RandomResetMaxPercent = 0.05f; // up to 5% weights reset when triggered
@@ -476,8 +476,8 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 		// Systems under test: SimpleML NN init and feedforward
 		USimpleMLNNFloatInitSystem* NNInit = NewObject<USimpleMLNNFloatInitSystem>();
 		USimpleMLNNFloatFeedforwardSystem* NNForward = NewObject<USimpleMLNNFloatFeedforwardSystem>();
-		NNInit->Initialize(Registry);
-		NNForward->Initialize(Registry);
+		NNInit->Initialize(nullptr, Registry);
+		NNForward->Initialize(nullptr, Registry);
 		
 		// Randomized training samples (x, y) in [0.1, 1]; area = x*y.
 		// Deterministic across runs by using a fixed seed.
