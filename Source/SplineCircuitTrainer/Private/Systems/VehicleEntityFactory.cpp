@@ -1,11 +1,12 @@
 ﻿//Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
 
-#include "VehicleEntityFactory.h"
+#include "Systems/VehicleEntityFactory.h"
 #include "VehicleTrainerContext.h"
 #include "VehicleTrainerConfig.h"
 #include "VehicleComponent.h"
 #include "Components/NNIOComponents.h"
 #include "Components/SplineComponent.h"
+#include "Components/NetworkComponent.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/World.h"
 
@@ -14,6 +15,7 @@ UVehicleEntityFactory::UVehicleEntityFactory()
 	RegisterComponent<FVehicleComponent>();
 	RegisterComponent<FNNInFLoatComp>();
 	RegisterComponent<FNNOutFloatComp>();
+	RegisterComponent<FNeuralNetworkFloat>();
 }
 
 void UVehicleEntityFactory::Initialize(AEcsContext* InContext, entt::registry& InRegistry)
@@ -64,6 +66,13 @@ void UVehicleEntityFactory::Initialize(AEcsContext* InContext, entt::registry& I
 			// Add NN Input and Output components
 			InRegistry.emplace<FNNInFLoatComp>(Entity);
 			InRegistry.emplace<FNNOutFloatComp>(Entity);
+			FNeuralNetworkFloat& NetComp = InRegistry.emplace<FNeuralNetworkFloat>(Entity);
+
+			// Initialize Neural Network from config
+			if (TrainerContext->TrainerConfig->NNLayerDescriptors.Num() > 0)
+			{
+				NetComp.Initialize(TrainerContext->TrainerConfig->NNLayerDescriptors);
+			}
 		}
 	}
 }

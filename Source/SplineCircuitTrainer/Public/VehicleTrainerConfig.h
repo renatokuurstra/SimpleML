@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "NeuralNetwork.h"
 #include "VehicleTrainerConfig.generated.h"
 
 class APawn;
@@ -23,4 +24,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	int32 Population = 10;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network")
+	TArray<FNeuralNetworkLayerDescriptor> NNLayerDescriptors;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network", meta = (Units = "ms"))
+	float NetworkUpdateFrequencyMS = 20.0f;
 };

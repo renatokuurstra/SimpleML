@@ -30,4 +30,13 @@ public:
 	/** Helper function to retrieve the spline component from the CircuitActor */
 	UFUNCTION(BlueprintCallable, Category = "Trainer")
 	USplineComponent* GetCircuitSpline() const;
+
+protected:
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+private:
+	void OnEvaluateNetworks();
+
+	FTimerHandle NetworkUpdateTimerHandle;
 };

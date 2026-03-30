@@ -9,6 +9,33 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	PrimaryActorTick.bCanEverTick = true;
 }
 
+void AVehicleTrainerContext::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (TrainerConfig)
+	{
+		float Freq = TrainerConfig->NetworkUpdateFrequencyMS;
+		if (Freq > 0.0f)
+		{
+			float UpdateRateSeconds = Freq / 1000.0f;
+			GetWorldTimerManager().SetTimer(NetworkUpdateTimerHandle, this, &AVehicleTrainerContext::OnEvaluateNetworks, UpdateRateSeconds, true);
+		}
+	}
+}
+
+void AVehicleTrainerContext::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	GetWorldTimerManager().ClearTimer(NetworkUpdateTimerHandle);
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void AVehicleTrainerContext::OnEvaluateNetworks()
+{
+	ExecuteEvent(TEXT("EvaluateNetworks"));
+}
+
 USplineComponent* AVehicleTrainerContext::GetCircuitSpline() const
 {
 	if (!CircuitActor)
