@@ -7,7 +7,9 @@
 #include "Components/NNIOComponents.h"
 #include "Components/SplineComponent.h"
 #include "Components/NetworkComponent.h"
+#include "Components/GenomeComponents.h"
 #include "GameFramework/Pawn.h"
+#include "AIController.h"
 #include "Engine/World.h"
 
 UVehicleEntityFactory::UVehicleEntityFactory()
@@ -16,6 +18,8 @@ UVehicleEntityFactory::UVehicleEntityFactory()
 	RegisterComponent<FNNInFLoatComp>();
 	RegisterComponent<FNNOutFloatComp>();
 	RegisterComponent<FNeuralNetworkFloat>();
+	RegisterComponent<FGenomeFloatViewComponent>();
+	RegisterComponent<FFitnessComponent>();
 }
 
 void UVehicleEntityFactory::Initialize(AEcsContext* InContext, entt::registry& InRegistry)
@@ -60,18 +64,35 @@ void UVehicleEntityFactory::Initialize(AEcsContext* InContext, entt::registry& I
 
 		if (NewPawn)
 		{
+			// Spawn AI Controller and possess
+			if (AAIController* AIController = World->SpawnActor<AAIController>())
+			{
+				AIController->Possess(NewPawn);
+			}
+
 			// Add VehicleComponent to entity with pawn reference
 			InRegistry.emplace<FVehicleComponent>(Entity, NewPawn);
 
 			// Add NN Input and Output components
-			InRegistry.emplace<FNNInFLoatComp>(Entity);
-			InRegistry.emplace<FNNOutFloatComp>(Entity);
+			FNNInFLoatComp& InComp = InRegistry.emplace<FNNInFLoatComp>(Entity);
+			FNNOutFloatComp& OutComp = InRegistry.emplace<FNNOutFloatComp>(Entity);
 			FNeuralNetworkFloat& NetComp = InRegistry.emplace<FNeuralNetworkFloat>(Entity);
 
+			// Add Genome and Fitness components
+			InRegistry.emplace<FGenomeFloatViewComponent>(Entity);
+			FFitnessComponent& FitComp = InRegistry.emplace<FFitnessComponent>(Entity);
+			FitComp.Fitness.SetNum(1);
+			FitComp.Fitness[0] = 0.0f;
+			FitComp.BuiltForFitnessIndex = 0;
+
 			// Initialize Neural Network from config
-			if (TrainerContext->TrainerConfig->NNLayerDescriptors.Num() > 0)
+			if (TrainerContext->TrainerConfig->NNLayerDescriptors.Num() >= 2)
 			{
 				NetComp.Initialize(TrainerContext->TrainerConfig->NNLayerDescriptors);
+				
+				// Set NN input and output sizes based on descriptors (first layer input, last layer output)
+				InComp.Values.SetNumZeroed(TrainerContext->TrainerConfig->NNLayerDescriptors[0].NeuronCount);
+				OutComp.Values.SetNumZeroed(TrainerContext->TrainerConfig->NNLayerDescriptors.Last().NeuronCount);
 			}
 		}
 	}

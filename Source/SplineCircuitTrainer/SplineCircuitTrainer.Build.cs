@@ -15,7 +15,9 @@ public class SplineCircuitTrainer : ModuleRules
             "Engine",
             "UEcs",
             "SimpleML",
-            "SimpleMLInterfaces"
+            "SimpleMLInterfaces",
+            "GeneticAlgorithm",
+            "AIModule"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[]
