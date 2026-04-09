@@ -5,7 +5,7 @@
 #include "Components/BreedingPairComponent.h"
 #include "Math/UnrealMathUtility.h"
 
-void UBreedCharGenomesSystem::Update(float /*DeltaTime*/)
+void UBreedCharGenomesSystem::Update_Implementation(float /*DeltaTime*/)
 {
     auto& Registry = GetRegistry();
 

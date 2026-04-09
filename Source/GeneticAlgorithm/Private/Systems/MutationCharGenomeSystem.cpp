@@ -5,7 +5,7 @@
 #include "Components/GenomeComponents.h"
 #include "Math/UnrealMathUtility.h"
 
-void UMutationCharGenomeSystem::Update(float /*DeltaTime*/)
+void UMutationCharGenomeSystem::Update_Implementation(float /*DeltaTime*/)
 {
     auto& Registry = GetRegistry();
 

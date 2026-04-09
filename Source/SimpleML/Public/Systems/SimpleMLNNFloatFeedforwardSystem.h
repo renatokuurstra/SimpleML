@@ -23,5 +23,5 @@ public:
 		RegisterComponent<FNNOutFloatComp>();
 	}
 
-	virtual void Update(float DeltaTime = 0.0f) override;
+	virtual void Update_Implementation(float DeltaTime) override;
 };

@@ -54,7 +54,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GeneticAlgorithm|Selection|Tournament")
 	int32 RandomSeed = 0;
 
-	virtual void Update(float DeltaTime = 0.0f) override;
+	virtual void Update_Implementation(float DeltaTime) override;
 
 private:
 	struct FEntityRefFitness

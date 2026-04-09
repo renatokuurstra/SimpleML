@@ -56,7 +56,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Mutation")
 	int32 RandomSeed = 0;
 
- virtual void Update(float DeltaTime = 0.0f) override;
+	virtual void Update_Implementation(float DeltaTime) override;
 private:
 	FRandomStream Rng;
 	bool bRngSeeded = false;

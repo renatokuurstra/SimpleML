@@ -9,6 +9,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleTrainerContext_Tests, "SplineCircuitTrain
 	TEST_METHOD(CanCreateVehicleTrainerContext)
 	{
 		AVehicleTrainerContext* Trainer = NewObject<AVehicleTrainerContext>();
-		ASSERT_THAT(IsNotNull(Trainer));
+		ASSERT_THAT(IsNotNull(Trainer, "VehicleTrainerContext actor should be successfully created via NewObject"));
 	}
 };

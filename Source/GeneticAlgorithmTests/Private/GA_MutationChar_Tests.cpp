@@ -44,7 +44,7 @@ TEST_CLASS(SimpleML_GA_MutationChar_Tests, "SimpleML.GA.MutationChar")
 
 		// Create and configure mutator
 		Mutator = NewObject<UMutationCharGenomeSystem>();
-		Mutator->Initialize(nullptr, Registry);
+		IEcsEventElement::Execute_Initialize(Mutator, nullptr);
 		Mutator->BitFlipProbability = 0.20f; // 20%
 		Mutator->RandomSeed = 42; // deterministic
 	}
@@ -53,7 +53,7 @@ TEST_CLASS(SimpleML_GA_MutationChar_Tests, "SimpleML.GA.MutationChar")
 	{
 		if (Mutator)
 		{
-			Mutator->Deinitialize();
+			IEcsEventElement::Execute_Deinitialize(Mutator);
 			Mutator = nullptr;
 		}
 		Registry.clear();
@@ -76,7 +76,7 @@ TEST_CLASS(SimpleML_GA_MutationChar_Tests, "SimpleML.GA.MutationChar")
 	TEST_METHOD(Mutates_At_Least_15_Percent_Bits_With_P20)
 	{
 		// Act: run one mutation update
-		Mutator->Update(0.0f);
+		IEcsEventElement::Execute_Update(Mutator, 0.0f);
 
 		// Assert: count flipped bits
 		int64 flipped = 0;
@@ -92,6 +92,6 @@ TEST_CLASS(SimpleML_GA_MutationChar_Tests, "SimpleML.GA.MutationChar")
 		UE_LOG(LogTemp, Display, TEXT("MutationChar: flipped=%lld totalBits=%lld fraction=%.3f (p=0.20)"), flipped, totalBits, fraction);
 
 		const int64 minFlips = static_cast<int64>(FMath::FloorToDouble(0.15 * static_cast<double>(totalBits)));
-		ASSERT_THAT(IsTrue(flipped >= minFlips));
+		ASSERT_THAT(IsTrue(flipped >= minFlips, "Mutation should flip at least 15% of the bits with a 20% probability setting"));
 	}
 };

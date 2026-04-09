@@ -13,7 +13,7 @@ UVehicleNNOutputSystem::UVehicleNNOutputSystem()
 	RegisterComponent<FNNOutFloatComp>();
 }
 
-void UVehicleNNOutputSystem::Update(float DeltaTime)
+void UVehicleNNOutputSystem::Update_Implementation(float DeltaTime)
 {
 	auto View = GetView<FVehicleComponent, FNNOutFloatComp>();
 

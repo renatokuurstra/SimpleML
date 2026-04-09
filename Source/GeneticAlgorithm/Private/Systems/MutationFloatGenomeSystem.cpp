@@ -5,7 +5,7 @@
 #include "Components/GenomeComponents.h"
 #include "Containers/Set.h"
 
-void UMutationFloatGenomeSystem::Update(float /*DeltaTime*/)
+void UMutationFloatGenomeSystem::Update_Implementation(float /*DeltaTime*/)
 {
 	auto& Registry = GetRegistry();
 

@@ -42,7 +42,7 @@ float UBreedFloatGenomesSystem::SampleSbxChild(float X1, float X2, float U, floa
 	}
 }
 
-void UBreedFloatGenomesSystem::Update(float /*DeltaTime*/)
+void UBreedFloatGenomesSystem::Update_Implementation(float /*DeltaTime*/)
 {
 	auto& Registry = GetRegistry();
 

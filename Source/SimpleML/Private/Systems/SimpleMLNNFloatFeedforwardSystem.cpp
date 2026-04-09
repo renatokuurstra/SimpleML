@@ -6,7 +6,7 @@ THIRD_PARTY_INCLUDES_START
 #include "Dense"
 THIRD_PARTY_INCLUDES_END
 
-void USimpleMLNNFloatFeedforwardSystem::Update(float DeltaTime)
+void USimpleMLNNFloatFeedforwardSystem::Update_Implementation(float DeltaTime)
 {
 	// Operate on entities that have a network and the IO components
 	auto View = GetView<FNeuralNetworkFloat, FNNInFLoatComp, FNNOutFloatComp>();

@@ -62,43 +62,43 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 	{
 		// Initialize selection and cleanup (shared)
 		Selection = NewObject<UTournamentSelectionSystem>();
-		Selection->Initialize(nullptr, Registry);
+		IEcsEventElement::Execute_Initialize(Selection, nullptr);
 		Selection->TournamentSize = 8;
 		Selection->SelectionPressure = 0.7f;
 		Selection->bHigherIsBetter = true;
 		Selection->CrossGroupParentChance = 0.0f; // single group
 		Selection->RandomSeed = Seed + 1;
 
-  Cleanup = NewObject<UGACleanupSystem>();
-		Cleanup->Initialize(nullptr, Registry);
+		Cleanup = NewObject<UGACleanupSystem>();
+		IEcsEventElement::Execute_Initialize(Cleanup, nullptr);
 
 		// Initialize char systems
 		EliteChar = NewObject<UEliteSelectionCharSystem>();
-		EliteChar->Initialize(nullptr, Registry);
+		IEcsEventElement::Execute_Initialize(EliteChar, nullptr);
 		EliteChar->EliteCount = 3;
 		EliteChar->bHigherIsBetter = true;
 
 		BreederChar = NewObject<UBreedCharGenomesSystem>();
-		BreederChar->Initialize(nullptr, Registry);
+		IEcsEventElement::Execute_Initialize(BreederChar, nullptr);
 		BreederChar->RandomSeed = Seed + 2;
 
 		MutatorChar = NewObject<UMutationCharGenomeSystem>();
-		MutatorChar->Initialize(nullptr, Registry);
+		IEcsEventElement::Execute_Initialize(MutatorChar, nullptr);
 		MutatorChar->BitFlipProbability = 0.025f; // 2.5% per-bit
 		MutatorChar->RandomSeed = Seed + 3;
 
 		// Initialize float systems
 		EliteFloat = NewObject<UEliteSelectionFloatSystem>();
-		EliteFloat->Initialize(nullptr, Registry);
+		IEcsEventElement::Execute_Initialize(EliteFloat, nullptr);
 		EliteFloat->EliteCount = 3;
 		EliteFloat->bHigherIsBetter = true; // using negative SSE as fitness
 
 		BreederFloat = NewObject<UBreedFloatGenomesSystem>();
-		BreederFloat->Initialize(nullptr, Registry);
+		IEcsEventElement::Execute_Initialize(BreederFloat, nullptr);
 		BreederFloat->RandomSeed = Seed + 12;
 
 		MutatorFloat = NewObject<UMutationFloatGenomeSystem>();
-		MutatorFloat->Initialize(nullptr, Registry);
+		IEcsEventElement::Execute_Initialize(MutatorFloat, nullptr);
 		MutatorFloat->PerValueDeltaPercent = 0.025f; // ±2.5% multiplicative
 		MutatorFloat->RandomMutationChance = 0.05f;  // occasional resets
 		MutatorFloat->RandomResetMaxPercent = 0.05f; // up to 5% weights reset when triggered
@@ -110,16 +110,16 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 	AFTER_EACH()
 	{
 		// Deinit in reverse-ish order
-		if (EliteChar) { EliteChar->Deinitialize(); EliteChar = nullptr; }
-		if (BreederChar) { BreederChar->Deinitialize(); BreederChar = nullptr; }
-		if (MutatorChar) { MutatorChar->Deinitialize(); MutatorChar = nullptr; }
+		if (EliteChar) { IEcsEventElement::Execute_Deinitialize(EliteChar); EliteChar = nullptr; }
+		if (BreederChar) { IEcsEventElement::Execute_Deinitialize(BreederChar); BreederChar = nullptr; }
+		if (MutatorChar) { IEcsEventElement::Execute_Deinitialize(MutatorChar); MutatorChar = nullptr; }
 
-		if (EliteFloat) { EliteFloat->Deinitialize(); EliteFloat = nullptr; }
-		if (BreederFloat) { BreederFloat->Deinitialize(); BreederFloat = nullptr; }
-		if (MutatorFloat) { MutatorFloat->Deinitialize(); MutatorFloat = nullptr; }
+		if (EliteFloat) { IEcsEventElement::Execute_Deinitialize(EliteFloat); EliteFloat = nullptr; }
+		if (BreederFloat) { IEcsEventElement::Execute_Deinitialize(BreederFloat); BreederFloat = nullptr; }
+		if (MutatorFloat) { IEcsEventElement::Execute_Deinitialize(MutatorFloat); MutatorFloat = nullptr; }
 
-		if (Selection) { Selection->Deinitialize(); Selection = nullptr; }
-		if (Cleanup) { Cleanup->Deinitialize(); Cleanup = nullptr; }
+		if (Selection) { IEcsEventElement::Execute_Deinitialize(Selection); Selection = nullptr; }
+		if (Cleanup) { IEcsEventElement::Execute_Deinitialize(Cleanup); Cleanup = nullptr; }
 
 		Registry.clear();
 	}
@@ -237,17 +237,18 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			}
 
 			// 3) Elite selection → tournament selection → breeding → mutation → cleanup
-			EliteChar->Update(0.0f);
-			Selection->Update(0.0f);
-			BreederChar->Update(0.0f);
-			MutatorChar->Update(0.0f);
-			Cleanup->Update(0.0f);
+			// 3) Elite selection → tournament selection → breeding → mutation → cleanup
+			EliteChar->Update_Implementation(0.0f);
+			Selection->Update_Implementation(0.0f);
+			BreederChar->Update_Implementation(0.0f);
+			MutatorChar->Update_Implementation(0.0f);
+			Cleanup->Update_Implementation(0.0f);
 		}
 
 		// Final evaluation and assertion (early-out)
 		if (bMatched)
 		{
-			ASSERT_THAT(IsTrue(true));
+			ASSERT_THAT(IsTrue(true, "GA should successfully match the target string exactly"));
 		}
 		else
 		{
@@ -286,7 +287,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				}
 			}
 			
-			ASSERT_THAT(IsTrue(BestFitness >= Threshold));
+			ASSERT_THAT(IsTrue(BestFitness >= Threshold, "GA should reach at least 95% bit accuracy if exact match is not reached"));
 		}
 	}
 
@@ -415,17 +416,17 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			}
 
 			// 3) Elite selection → tournament selection → breeding → mutation → cleanup (float variants)
-			EliteFloat->Update(0.0f);
-			Selection->Update(0.0f);
-			BreederFloat->Update(0.0f);
-			MutatorFloat->Update(0.0f);
-			Cleanup->Update(0.0f);
+			EliteFloat->Update_Implementation(0.0f);
+			Selection->Update_Implementation(0.0f);
+			BreederFloat->Update_Implementation(0.0f);
+			MutatorFloat->Update_Implementation(0.0f);
+			Cleanup->Update_Implementation(0.0f);
 		}
 
 		// Final evaluation and assertion (early success check)
 		if (bMatched)
 		{
-			ASSERT_THAT(IsTrue(true));
+			ASSERT_THAT(IsTrue(true, "GA should successfully match the target values within tolerance"));
 		}
 		else
 		{
@@ -445,7 +446,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			}
 			const float RMSE = FMath::Sqrt(BestSSE / 5.0f);
 			const float RMSE_Threshold = 0.02f;
-			ASSERT_THAT(IsTrue(RMSE <= RMSE_Threshold));
+			ASSERT_THAT(IsTrue(RMSE <= RMSE_Threshold, "GA float E2E should reach an RMSE below the 0.02 threshold"));
 		}
 	}
 	
@@ -476,8 +477,8 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 		// Systems under test: SimpleML NN init and feedforward
 		USimpleMLNNFloatInitSystem* NNInit = NewObject<USimpleMLNNFloatInitSystem>();
 		USimpleMLNNFloatFeedforwardSystem* NNForward = NewObject<USimpleMLNNFloatFeedforwardSystem>();
-		NNInit->Initialize(nullptr, Registry);
-		NNForward->Initialize(nullptr, Registry);
+		IEcsEventElement::Execute_Initialize(NNInit, nullptr);
+		IEcsEventElement::Execute_Initialize(NNForward, nullptr);
 		
 		// Randomized training samples (x, y) in [0.1, 1]; area = x*y.
 		// Deterministic across runs by using a fixed seed.
@@ -570,7 +571,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 		for (int32 Step = 0; Step < MaxGenerations; ++Step)
 		{
 			// Ensure networks have randomized weights and bIsInitialized set (once)
-			NNInit->Update(0.0f);
+			NNInit->Update_Implementation(0.0f);
 			
 			// Map current genomes to network memory for all entities (keeps NN in sync with GA)
 			for (int32 i = 0; i < PopulationSize; ++i)
@@ -606,7 +607,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 					In.Values[0] = X; In.Values[1] = Y;
 				}
 				// Run forward pass for all
-				NNForward->Update(0.0f);
+				NNForward->Update_Implementation(0.0f);
 				// Accumulate fitness and tag invalid outputs (exclude elites from tagging)
 				for (int32 i = 0; i < PopulationSize; ++i)
 				{
@@ -671,11 +672,11 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			}
 			
 			// GA step using float systems
-			EliteFloat->Update(0.0f);
-			Selection->Update(0.0f);
-			BreederFloat->Update(0.0f);
-			MutatorFloat->Update(0.0f);
-			Cleanup->Update(0.0f);
+			EliteFloat->Update_Implementation(0.0f);
+			Selection->Update_Implementation(0.0f);
+			BreederFloat->Update_Implementation(0.0f);
+			MutatorFloat->Update_Implementation(0.0f);
+			Cleanup->Update_Implementation(0.0f);
 		}
 		
 		// Final evaluation and assertion based on accumulated fitness in last generation
@@ -709,12 +710,12 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				FNNInFLoatComp& InBest = Registry.get<FNNInFLoatComp>(BestEntityFinal);
 				InBest.Values[0] = X; InBest.Values[1] = Y;
 				// Run forward for all (cheap); we will read best entity's output
-				NNForward->Update(0.0f);
+				NNForward->Update_Implementation(0.0f);
 				const FNNOutFloatComp& OutBest = Registry.get<FNNOutFloatComp>(BestEntityFinal);
 				const float YHat = OutBest.Values.Num() > 0 ? OutBest.Values[0] : 0.0f;
 				const float AbsErr = FMath::Abs(YHat - Target);
 				const float Den = FMath::Max(Target, 1e-3f);
-				const float ErrPct = (Den > 0.0f) ? (AbsErr / Den) : AbsErr; // relative except near zero target
+					const float ErrPct = (Den > 0.0f) ? (AbsErr / Den) : AbsErr; // relative except near zero target
 				UE_LOG(LogTemp, Display, TEXT("[GA NN Area x SimpleML][PostCheck %d/10] x=%.4f y=%.4f target=%.6f yhat=%.6f err%%=%.2f"),
 					CheckIdx + 1, X, Y, Target, YHat, ErrPct * 100.0f);
 				if (ErrPct > 0.10f)
@@ -722,12 +723,12 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 					bAllChecksUnder10Pct = false;
 				}
 			}
-			ASSERT_THAT(IsTrue(bAllChecksUnder10Pct));
+			ASSERT_THAT(IsTrue(bAllChecksUnder10Pct, "NN should approximate the rectangle area within 10% relative error for all validation samples"));
 		}
 		else
 		{
 			// If we failed to identify a best entity, fail explicitly for visibility
-			ASSERT_THAT(IsTrue(false));
+			ASSERT_THAT(IsTrue(false, "GA failed to produce any valid best entity after training"));
 		}
 		
 		// Cleanup NN systems

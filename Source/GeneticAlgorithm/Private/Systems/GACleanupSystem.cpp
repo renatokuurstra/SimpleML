@@ -2,7 +2,7 @@
 #include "Components/BreedingPairComponent.h"
 #include "Components/GenomeComponents.h"
 
-void UGACleanupSystem::Update(float /*DeltaTime*/)
+void UGACleanupSystem::Update_Implementation(float /*DeltaTime*/)
 {
     auto& Registry = GetRegistry();
 

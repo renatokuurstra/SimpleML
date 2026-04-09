@@ -78,7 +78,7 @@ entt::entity UTournamentSelectionSystem::RunTournament(const TArray<FEntityRefFi
 	return WinnerIdx != INDEX_NONE ? Bucket[WinnerIdx].Entity : entt::null;
 }
 
-void UTournamentSelectionSystem::Update(float /*DeltaTime*/)
+void UTournamentSelectionSystem::Update_Implementation(float /*DeltaTime*/)
 {
 	auto& Registry = GetRegistry();
 	auto EntityResetView = GetView<FFitnessComponent, FResetGenomeComponent>();

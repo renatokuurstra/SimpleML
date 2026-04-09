@@ -22,9 +22,10 @@ UVehicleEntityFactory::UVehicleEntityFactory()
 	RegisterComponent<FFitnessComponent>();
 }
 
-void UVehicleEntityFactory::Initialize(AEcsContext* InContext, entt::registry& InRegistry)
+void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 {
-	Super::Initialize(InContext, InRegistry);
+	Super::Initialize_Implementation(InContext);
+	entt::registry& InRegistry = GetRegistry();
 
 	AVehicleTrainerContext* TrainerContext = Cast<AVehicleTrainerContext>(InContext);
 	if (!TrainerContext || !TrainerContext->TrainerConfig || !TrainerContext->TrainerConfig->VehiclePawnClass)

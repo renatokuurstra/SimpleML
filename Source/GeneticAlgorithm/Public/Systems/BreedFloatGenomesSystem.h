@@ -54,7 +54,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Breeding|SBX")
 	int32 RandomSeed = 0;
 
-	virtual void Update(float DeltaTime = 0.0f) override;
+	virtual void Update_Implementation(float DeltaTime) override;
 
 private:
 	// Per-gene SBX child sampling. Returns one child value produced from parents x1, x2.

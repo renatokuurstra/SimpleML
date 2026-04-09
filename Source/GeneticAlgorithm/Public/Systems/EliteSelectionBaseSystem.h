@@ -41,7 +41,7 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 		bool bHigherIsBetter = true;
 		
 		// Drive selection each tick from the base; children only implement hooks.
-		virtual void Update(float DeltaTime = 0.0f) override
+		virtual void Update_Implementation(float DeltaTime) override
 		{
 			// UEcsSystem::Update is empty; directly invoke selection to avoid duplication in children.
 			ApplySelection();

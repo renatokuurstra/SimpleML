@@ -2,7 +2,7 @@
 
 #include "Systems/SimpleMLNNFloatInitSystem.h"
 
-void USimpleMLNNFloatInitSystem::Update(float DeltaTime)
+void USimpleMLNNFloatInitSystem::Update_Implementation(float DeltaTime)
 {
 	// Iterate over all entities with a float neural network and initialize weights/biases only
 	auto View = GetView<FNeuralNetworkFloat>();
