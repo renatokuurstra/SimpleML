@@ -12,7 +12,8 @@ void USimpleMLNNFloatInitSystem::Update_Implementation(float DeltaTime)
 		if (!Comp.Network.bIsInitialized)
 		{
 			// Initialize weights/biases with a sensible default range. No IO responsibilities here.
-			Comp.Network.InitializeWeightsUniform(static_cast<float>(-1.0f), static_cast<float>(1.0f));
+			// Using 0 as seed for deterministic initialization in systems by default.
+			Comp.Network.InitializeWeightsUniform(static_cast<float>(-1.0f), static_cast<float>(1.0f), 0);
 			Comp.Network.bIsInitialized = true;
 		}
 	}

@@ -26,6 +26,11 @@
       "LoadingPhase": "Default"
     },
     {
+      "Name": "SimpleMLTests",
+      "Type": "DeveloperTool",
+      "LoadingPhase": "Default"
+    },
+    {
       "Name": "GeneticAlgorithm",
       "Type": "Runtime",
       "LoadingPhase": "Default"

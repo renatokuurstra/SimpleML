@@ -74,8 +74,9 @@ public:
     /**
      * Initialize the neural network with given layer descriptors
      * @param InLayerDescriptors Array of layer descriptors defining the network architecture
+     * @param Seed Optional seed for weight initialization
      */
-    void Initialize(const TArray<FNeuralNetworkLayerDescriptor>& InLayerDescriptors)
+    void Initialize(const TArray<FNeuralNetworkLayerDescriptor>& InLayerDescriptors, int32 Seed = 0)
     {
         if (InLayerDescriptors.Num() < 2)
         {
@@ -116,15 +117,16 @@ public:
         // Allocate single contiguous memory for all weights and biases
         Data.SetNumZeroed(TotalData);
         
-        InitializeWeights();
+        InitializeWeights(Seed);
     }
 
     /**
      * Initialize weights using Xavier/He initialization
+     * @param Seed Seed for weight initialization
      */
-    void InitializeWeights()
+    void InitializeWeights(int32 Seed = 0)
     {
-        FRandomStream RandomStream(FDateTime::Now().GetTicks());
+        FRandomStream RandomStream(Seed);
 
         for (int32 LayerIdx = 0; LayerIdx < LayerLayouts.Num(); ++LayerIdx)
         {
@@ -150,9 +152,9 @@ public:
     }
 
     // Fill weights and biases with a uniform random in [Min, Max]
-    void InitializeWeightsUniform(T Min, T Max)
+    void InitializeWeightsUniform(T Min, T Max, int32 Seed = 0)
     {
-        FRandomStream RandomStream(FDateTime::Now().GetTicks());
+        FRandomStream RandomStream(Seed);
         for (int32 LayerIdx = 0; LayerIdx < LayerLayouts.Num(); ++LayerIdx)
         {
             const FLayerMemoryLayout& Layout = LayerLayouts[LayerIdx];

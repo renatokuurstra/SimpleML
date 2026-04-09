@@ -13,9 +13,9 @@ struct SIMPLEML_API FNeuralNetworkFloat
 
 	TNeuralNetwork<float, FNeuron> Network;
 
-	void Initialize(const TArray<FNeuralNetworkLayerDescriptor>& LayerDescriptors)
+	void Initialize(const TArray<FNeuralNetworkLayerDescriptor>& LayerDescriptors, int32 Seed = 0)
 	{
-		Network.Initialize(LayerDescriptors);
+		Network.Initialize(LayerDescriptors, Seed);
 	}
 };
 

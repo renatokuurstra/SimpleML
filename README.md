@@ -40,7 +40,8 @@ Important: The GeneticAlgorithm module implements a steady-state GA (not classic
 ## Modules
 SimpleML currently provides the following modules:
 - `SimpleMLInterfaces` (Runtime): Minimal interfaces for ML-controlled entities.
-- `SimpleML` (Runtime): Base module for shared ML scaffolding.
+- `SimpleML` (Runtime): Base module for shared ML scaffolding (Neural Networks, Activation functions).
+- `SimpleMLTests` (Developer): Tests for the SimpleML module.
 - `GeneticAlgorithm` (Runtime): Systems and components for genome representation, breeding, selection, and mutation.
 - `GeneticAlgorithmTests` (Developer): Test/experimental code that depends on `GeneticAlgorithm`.
 - `SplineCircuitTrainer` (Runtime): ECS context for training vehicles on a spline circuit.
@@ -57,6 +58,12 @@ SimpleML currently provides the following modules:
   - Mutation: `UMutationFloatGenomeSystem` (per-value ±X% noise, optional random resets)
 
 ## Public API (overview)
+Key headers (under `Plugins/SimpleML/Source/SimpleML/Public`):
+- `NeuralNetwork.h`: Templated neural network `TNeuralNetwork<T, TNeuron>` with contiguous memory layout.
+  - `Initialize(const TArray<FNeuralNetworkLayerDescriptor>& InLayerDescriptors, int32 Seed = 0)`: Initializes the network structure and weights.
+  - `InitializeWeights(int32 Seed = 0)`: Re-initializes weights using Xavier/He initialization with a specific seed for determinism.
+  - `InitializeWeightsUniform(T Min, T Max, int32 Seed = 0)`: Re-initializes weights and biases with uniform random values.
+
 Key headers (under `Plugins/SimpleML/Source/SimpleMLInterfaces/Public`):
 - `VehicleNNInterface.h`: Defines `ISimpleMLVehicleNNInterface`.
 

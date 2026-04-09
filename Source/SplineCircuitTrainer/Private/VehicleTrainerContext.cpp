@@ -3,10 +3,36 @@
 #include "VehicleTrainerContext.h"
 #include "Components/SplineComponent.h"
 #include "VehicleTrainerConfig.h"
+#include "Systems/SimpleMLNNFloatFeedforwardSystem.h"
+#include "Systems/SimpleMLNNFloatInitSystem.h"
+#include "Systems/VehicleEntityFactory.h"
+#include "Systems/VehicleNNOutputSystem.h"
+
+FName EvaluateNetworkEvent = FName("EvaluateNetworks");
 
 AVehicleTrainerContext::AVehicleTrainerContext()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	
+	auto& BeginPlayEvent = EcsChainEvents.ChainEvents.FindOrAdd(FEcsChainEventNames::BeginPlay);
+
+	//Create all necessary entities with proper components
+	UVehicleEntityFactory* VehicleEntityFactory = CreateDefaultSubobject<UVehicleEntityFactory>("VehicleEntityFactory");
+	//Initialise all NN on entities
+	USimpleMLNNFloatInitSystem* InitSystem = CreateDefaultSubobject<USimpleMLNNFloatInitSystem>("NNFloatInitSys");
+
+	BeginPlayEvent.Elements.Add(VehicleEntityFactory);
+	BeginPlayEvent.Elements.Add(InitSystem);
+	
+	auto& EvaluateEvent = EcsChainEvents.ChainEvents.FindOrAdd(EvaluateNetworkEvent);
+	
+	//Feedforward, move inputs to outputs
+	USimpleMLNNFloatFeedforwardSystem* NNFeedForward = CreateDefaultSubobject<USimpleMLNNFloatFeedforwardSystem>("FeedForwardSys");
+	//Move outputs of networks to the pawn movement functions
+	UVehicleNNOutputSystem* NNOutputSystem = CreateDefaultSubobject<UVehicleNNOutputSystem>("NNOutputSys");
+	
+	EvaluateEvent.Elements.Add(NNFeedForward);
+	EvaluateEvent.Elements.Add(NNOutputSystem) ;
 }
 
 void AVehicleTrainerContext::BeginPlay()

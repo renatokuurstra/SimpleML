@@ -89,7 +89,7 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 			// Initialize Neural Network from config
 			if (TrainerContext->TrainerConfig->NNLayerDescriptors.Num() >= 2)
 			{
-				NetComp.Initialize(TrainerContext->TrainerConfig->NNLayerDescriptors);
+				NetComp.Initialize(TrainerContext->TrainerConfig->NNLayerDescriptors, i);
 				
 				// Set NN input and output sizes based on descriptors (first layer input, last layer output)
 				InComp.Values.SetNumZeroed(TrainerContext->TrainerConfig->NNLayerDescriptors[0].NeuronCount);
