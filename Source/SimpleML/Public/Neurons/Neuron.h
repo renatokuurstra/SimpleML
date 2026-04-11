@@ -54,20 +54,35 @@ struct SIMPLEML_API FNeuron
     static Eigen::Matrix<T, Eigen::Dynamic, 1> FeedforwardNetwork(
         const TArray<FLayerMemoryLayout>& LayerLayouts,
         const TArray<T>& Data,
-        const Eigen::Ref<const Eigen::Matrix<T, Eigen::Dynamic, 1>>& Input)
+        const Eigen::Ref<const Eigen::Matrix<T, Eigen::Dynamic, 1>>& Input,
+        Eigen::Matrix<T, Eigen::Dynamic, 1>* ScratchA = nullptr,
+        Eigen::Matrix<T, Eigen::Dynamic, 1>* ScratchB = nullptr)
     {
-        Eigen::Matrix<T, Eigen::Dynamic, 1> Activation = Input;
+        // Use provided scratch buffers if available to avoid allocations
+        Eigen::Matrix<T, Eigen::Dynamic, 1> LocalScratchA;
+        Eigen::Matrix<T, Eigen::Dynamic, 1> LocalScratchB;
+
+        Eigen::Matrix<T, Eigen::Dynamic, 1>& BufferA = ScratchA ? *ScratchA : LocalScratchA;
+        Eigen::Matrix<T, Eigen::Dynamic, 1>& BufferB = ScratchB ? *ScratchB : LocalScratchB;
+
+        BufferA = Input;
+        
+        Eigen::Matrix<T, Eigen::Dynamic, 1>* CurrentActivation = &BufferA;
+        Eigen::Matrix<T, Eigen::Dynamic, 1>* NextActivation = &BufferB;
+
         for (int32 LayerIdx = 0; LayerIdx < LayerLayouts.Num(); ++LayerIdx)
         {
             const auto& Layout = LayerLayouts[LayerIdx];
             auto Weights = GetWeightMatrix<T>(Data, Layout);
             auto Biases = GetBiasVector<T>(Data, Layout);
 
-            Eigen::Matrix<T, Eigen::Dynamic, 1> Next;
-            Next.resize(Layout.OutputSize);
-            Feedforward<T>(Weights, Biases, Activation, Next);
-            Activation.swap(Next);
+            NextActivation->resize(Layout.OutputSize);
+            Feedforward<T>(Weights, Biases, *CurrentActivation, *NextActivation);
+            
+            // Swap pointers for next layer
+            std::swap(CurrentActivation, NextActivation);
         }
-        return Activation;
+        
+        return *CurrentActivation;
     }
 };

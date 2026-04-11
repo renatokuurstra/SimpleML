@@ -92,7 +92,8 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 				NetComp.Initialize(TrainerContext->TrainerConfig->NNLayerDescriptors, i);
 				
 				// Set NN input and output sizes based on descriptors (first layer input, last layer output)
-				InComp.Values.SetNumZeroed(TrainerContext->TrainerConfig->NNLayerDescriptors[0].NeuronCount);
+				InComp.Values.Init(0.5f, TrainerContext->TrainerConfig->NNLayerDescriptors[0].NeuronCount);
+				//InComp.Values.SetNumZeroed(TrainerContext->TrainerConfig->NNLayerDescriptors[0].NeuronCount);
 				OutComp.Values.SetNumZeroed(TrainerContext->TrainerConfig->NNLayerDescriptors.Last().NeuronCount);
 			}
 		}

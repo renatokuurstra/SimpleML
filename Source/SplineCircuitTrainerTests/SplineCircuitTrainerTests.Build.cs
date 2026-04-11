@@ -16,6 +16,7 @@ public class SplineCircuitTrainerTests : ModuleRules
             "UEcs",
             "SplineCircuitTrainer",
             "SimpleML",
+            "SimpleMLInterfaces",
             "CQTest"
         });
 

@@ -62,6 +62,11 @@ private:
     // Single contiguous memory storage for all weights and biases (layer offsets point into this buffer)
     TArray<T> Data;
     
+    // Scratch buffers for feedforward to avoid per-pass allocations
+    mutable Eigen::Matrix<T, Eigen::Dynamic, 1> ScratchA;
+    mutable Eigen::Matrix<T, Eigen::Dynamic, 1> ScratchB;
+    int32 MaxInternalLayerSize = 0;
+    
     // Offset information for accessing layer data
 private:
     TArray<FLayerMemoryLayout> LayerLayouts;
@@ -117,6 +122,17 @@ public:
         // Allocate single contiguous memory for all weights and biases
         Data.SetNumZeroed(TotalData);
         
+        // Calculate max internal layer size for scratch buffer pre-allocation
+        MaxInternalLayerSize = 0;
+        for (const FLayerMemoryLayout& Layout : LayerLayouts)
+        {
+            MaxInternalLayerSize = FMath::Max(MaxInternalLayerSize, Layout.InputSize);
+            MaxInternalLayerSize = FMath::Max(MaxInternalLayerSize, Layout.OutputSize);
+        }
+        
+        ScratchA.resize(MaxInternalLayerSize);
+        ScratchB.resize(MaxInternalLayerSize);
+
         InitializeWeights(Seed);
     }
 
@@ -266,9 +282,9 @@ public:
      * @param Input Input vector
      * @return Output vector
      */
-    Eigen::Matrix<T, Eigen::Dynamic, 1> Forward(const Eigen::Matrix<T, Eigen::Dynamic, 1>& Input)
+    Eigen::Matrix<T, Eigen::Dynamic, 1> Forward(const Eigen::Matrix<T, Eigen::Dynamic, 1>& Input) const
     {
-        return TNeuron::template FeedforwardNetwork<T>(LayerLayouts, Data, Input);
+        return TNeuron::template FeedforwardNetwork<T>(LayerLayouts, Data, Input, &ScratchA, &ScratchB);
     }
 
     /**

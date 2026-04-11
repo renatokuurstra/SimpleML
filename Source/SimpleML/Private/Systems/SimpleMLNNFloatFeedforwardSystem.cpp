@@ -30,7 +30,7 @@ void USimpleMLNNFloatFeedforwardSystem::Update_Implementation(float DeltaTime)
 
 		// Perform feedforward via the network API that accepts arrays
 		if (!NetComp.Network.FeedforwardArray(In.Values, Out.Values))
-		{
+		{	
 			// If it failed, ensure output is sized but zeroed to be safe
 			Out.Values.SetNumZeroed(OutSize);
 		}
