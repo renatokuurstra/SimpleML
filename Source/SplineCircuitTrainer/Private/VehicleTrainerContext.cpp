@@ -8,6 +8,7 @@
 #include "Systems/VehicleEntityFactory.h"
 #include "Systems/VehicleNNOutputSystem.h"
 #include "Systems/VehicleNNInputSystem.h"
+#include "Systems/VehicleProgressSystem.h"
 #include "Systems/EliteSelectionFloatSystem.h"
 #include "Systems/TournamentSelectionSystem.h"
 #include "Systems/BreedFloatGenomesSystem.h"
@@ -49,12 +50,15 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	
 	auto& NewGenEvent = EcsChainEvents.ChainEvents.FindOrAdd(NewGenerationEvent);
 	
+	UVehicleProgressSystem* ProgressSystem = CreateDefaultSubobject<UVehicleProgressSystem>("ProgressSys");
 	UEliteSelectionFloatSystem* EliteSys = CreateDefaultSubobject<UEliteSelectionFloatSystem>("EliteSys");
 	UTournamentSelectionSystem* SelectionSys = CreateDefaultSubobject<UTournamentSelectionSystem>("SelectionSys");
 	UBreedFloatGenomesSystem* BreedSys = CreateDefaultSubobject<UBreedFloatGenomesSystem>("BreedSys");
 	UMutationFloatGenomeSystem* MutationSys = CreateDefaultSubobject<UMutationFloatGenomeSystem>("MutationSys");
 	UGACleanupSystem* CleanupSys = CreateDefaultSubobject<UGACleanupSystem>("CleanupSys");
 
+	
+	NewGenEvent.Elements.Add(ProgressSystem);
 	NewGenEvent.Elements.Add(EliteSys);
 	NewGenEvent.Elements.Add(SelectionSys);
 	NewGenEvent.Elements.Add(BreedSys);

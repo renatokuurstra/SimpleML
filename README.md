@@ -81,8 +81,10 @@ Key headers (under `Plugins/SimpleML/Source/GeneticAlgorithm/Public`):
   - `UVehicleTrainerConfig`: Data asset holding trainer settings. It automatically manages the neural network structure based on inputs (spline distance, velocity, future path, recurrence) and hidden layer configuration. Includes `SpawnVerticalOffset` for positioning vehicles.
   - `UVehicleEntityFactory`: ECS system that spawns pawns and creates entities. It initializes the neural network based on `UVehicleTrainerConfig` parameters.
   - `UVehicleNNInputSystem`: ECS system that generates inputs for the neural network based on vehicle position relative to the spline, velocity, and previous outputs (recurrence).
+  - `UVehicleProgressSystem`: ECS system that evaluates the progress of vehicle pawns along a spline, handling looped splines and forward/backward movement.
   - `UVehicleNNOutputSystem`: ECS system that applies the neural network outputs back to the vehicle pawn via `ISimpleMLVehicleNNInterface`.
   - `FVehicleComponent`: ECS component that stores a reference to the spawned pawn.
+  - `FTrainingDataComponent`: ECS component that tracks the distance traveled along the spline.
 
 ### SimpleMLInterfaces
 - `ISimpleMLVehicleNNInterface`: Interface to be implemented by vehicle pawns to receive neural network outputs.

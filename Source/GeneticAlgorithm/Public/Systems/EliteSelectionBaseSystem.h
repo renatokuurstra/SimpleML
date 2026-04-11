@@ -26,7 +26,7 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 		GENERATED_BODY()
 		
 	public:
-  UEliteSelectionBaseSystem()
+		UEliteSelectionBaseSystem()
 		{
 			RegisterComponent<FFitnessComponent>();
 			RegisterComponent<FEliteTagComponent>();

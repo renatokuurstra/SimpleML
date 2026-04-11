@@ -4,6 +4,7 @@
 #include "VehicleTrainerContext.h"
 #include "VehicleTrainerConfig.h"
 #include "VehicleComponent.h"
+#include "Components/TrainingDataComponent.h"
 #include "Components/NNIOComponents.h"
 #include "Components/SplineComponent.h"
 #include "Components/NetworkComponent.h"
@@ -17,6 +18,7 @@ UVehicleEntityFactory::UVehicleEntityFactory()
 	RegisterComponent<FVehicleComponent>();
 	RegisterComponent<FNNInFLoatComp>();
 	RegisterComponent<FNNOutFloatComp>();
+	RegisterComponent<FTrainingDataComponent>();
 	RegisterComponent<FNeuralNetworkFloat>();
 	RegisterComponent<FGenomeFloatViewComponent>();
 	RegisterComponent<FFitnessComponent>();
@@ -81,6 +83,9 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 
 			// Add VehicleComponent to entity with pawn reference
 			InRegistry.emplace<FVehicleComponent>(Entity, NewPawn);
+
+			// Add training data component
+			InRegistry.emplace<FTrainingDataComponent>(Entity);
 
 			// Add NN Input and Output components
 			FNNInFLoatComp& InComp = InRegistry.emplace<FNNInFLoatComp>(Entity);
