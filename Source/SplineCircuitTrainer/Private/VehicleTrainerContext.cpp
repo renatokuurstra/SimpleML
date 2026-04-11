@@ -43,9 +43,12 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	EvaluateEvent.Elements.Add(NNInputSystem);
 	EvaluateEvent.Elements.Add(NNFeedForward);
 	EvaluateEvent.Elements.Add(NNOutputSystem);
-
+	
+	EvaluateEvent.bIsUpdateSystems = true;
+	EvaluateEvent.UpdateFreqSec = 0.1f;
+	
 	auto& NewGenEvent = EcsChainEvents.ChainEvents.FindOrAdd(NewGenerationEvent);
-
+	
 	UEliteSelectionFloatSystem* EliteSys = CreateDefaultSubobject<UEliteSelectionFloatSystem>("EliteSys");
 	UTournamentSelectionSystem* SelectionSys = CreateDefaultSubobject<UTournamentSelectionSystem>("SelectionSys");
 	UBreedFloatGenomesSystem* BreedSys = CreateDefaultSubobject<UBreedFloatGenomesSystem>("BreedSys");
@@ -57,21 +60,9 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	NewGenEvent.Elements.Add(BreedSys);
 	NewGenEvent.Elements.Add(MutationSys);
 	NewGenEvent.Elements.Add(CleanupSys);
-}
-
-void AVehicleTrainerContext::BeginPlay()
-{
-	Super::BeginPlay();
-
-	if (TrainerConfig)
-	{
-		float Freq = TrainerConfig->NetworkUpdateFrequencyMS;
-		if (Freq > 0.0f)
-		{
-			float UpdateRateSeconds = Freq / 1000.0f;
-			GetWorldTimerManager().SetTimer(NetworkUpdateTimerHandle, this, &AVehicleTrainerContext::OnEvaluateNetworks, UpdateRateSeconds, true);
-		}
-	}
+	
+	NewGenEvent.bIsUpdateSystems = true;
+	NewGenEvent.UpdateFreqSec = 0.5f;
 }
 
 void AVehicleTrainerContext::EndPlay(const EEndPlayReason::Type EndPlayReason)
