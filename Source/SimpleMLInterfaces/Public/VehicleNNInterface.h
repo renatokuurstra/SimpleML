@@ -22,8 +22,7 @@ class SIMPLEMLINTERFACES_API ISimpleMLVehicleNNInterface
 public:
 	/**
 	 * Apply outputs from a Neural Network to the vehicle.
-	 * @param Outputs Array of float values (typically Throttle, Brake, Steering).
+	 * @param Outputs View of float values (typically Throttle, Brake, Steering).
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Vehicle|NN")
-	virtual void ApplyNNOutputs(const TArray<float>& Outputs) = 0;
+	virtual void ApplyNNOutputs(TArrayView<const float> Outputs) = 0;
 };

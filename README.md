@@ -86,7 +86,7 @@ Key headers (under `Plugins/SimpleML/Source/GeneticAlgorithm/Public`):
 
 ### SimpleMLInterfaces
 - `ISimpleMLVehicleNNInterface`: Interface to be implemented by vehicle pawns to receive neural network outputs.
-  - `ApplyNNOutputs(const TArray<float>& Outputs)`: Applies NN control values to the vehicle.
+  - `ApplyNNOutputs(TArrayView<const float> Outputs)`: Applies NN control values to the vehicle.
 
 These systems are small, focused, and stateless; they operate purely on the provided component data.
 

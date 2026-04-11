@@ -38,7 +38,7 @@ void UVehicleNNOutputSystem::Update_Implementation(float DeltaTime)
 			{
 				// Only pass the first N elements (ignoring recurrence outputs)
 				TArrayView<const float> OutputView(OutComp.Values.GetData(), OutputCount);
-				Cast<ISimpleMLVehicleNNInterface>(VehicleComp.VehiclePawn)->ApplyNNOutputs(TArray<float>(OutputView));
+				Cast<ISimpleMLVehicleNNInterface>(VehicleComp.VehiclePawn)->ApplyNNOutputs(OutputView);
 			}
 		}
 	}

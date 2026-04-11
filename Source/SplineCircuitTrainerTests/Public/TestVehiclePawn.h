@@ -18,9 +18,9 @@ class ATestVehiclePawn : public APawn, public ISimpleMLVehicleNNInterface
 
 public:
 	// Begin ISimpleMLVehicleNNInterface
-	virtual void ApplyNNOutputs(const TArray<float>& Outputs) override
+	virtual void ApplyNNOutputs(TArrayView<const float> Outputs) override
 	{
-		LastOutputs = Outputs;
+		LastOutputs = TArray<float>(Outputs);
 	}
 	// End ISimpleMLVehicleNNInterface
 
