@@ -79,6 +79,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
 	float BottomResetFraction = 0.2f;
 
+	/** Threshold distance from spline to trigger a reset (e.g. out of bounds) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	float MaxSplineDistanceThreshold = 5000.0f;
+
+	/** Max time in seconds allowed without positive progress along the spline */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	float NoProgressTimeout = 2.0f;
+
 	/** Helper to calculate layer descriptors based on current settings */
 	UFUNCTION(BlueprintCallable, Category = "Neural Network")
 	TArray<FNeuralNetworkLayerDescriptor> GetNNLayerDescriptors() const;

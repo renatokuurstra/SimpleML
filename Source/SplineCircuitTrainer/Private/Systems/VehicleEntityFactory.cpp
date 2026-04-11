@@ -4,6 +4,7 @@
 #include "VehicleTrainerContext.h"
 #include "VehicleTrainerConfig.h"
 #include "VehicleComponent.h"
+#include "VehicleLibrary.h"
 #include "Components/TrainingDataComponent.h"
 #include "Components/NNIOComponents.h"
 #include "Components/SplineComponent.h"
@@ -54,21 +55,17 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 		SpawnParams.Owner = TrainerContext;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		
-		FVector SpawnLocation = TrainerContext->GetActorLocation();
-		FRotator SpawnRotation = TrainerContext->GetActorRotation();
+		FVector SpawnLocation;
+		FRotator SpawnRotation;
 
 		if (USplineComponent* Spline = TrainerContext->GetCircuitSpline())
 		{
-			SpawnLocation = Spline->GetLocationAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);
-			SpawnRotation = Spline->GetRotationAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);
-
-			// Apply vertical offset from config based on spline's up vector
-			float VerticalOffset = TrainerContext->TrainerConfig->SpawnVerticalOffset;
-			if (VerticalOffset != 0.0f)
-			{
-				FVector UpVector = Spline->GetUpVectorAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);
-				SpawnLocation += UpVector * VerticalOffset;
-			}
+			UVehicleLibrary::GetVehicleSpawnTransform(Spline, 0.0f, TrainerContext->TrainerConfig->SpawnVerticalOffset, SpawnLocation, SpawnRotation);
+		}
+		else
+		{
+			SpawnLocation = TrainerContext->GetActorLocation();
+			SpawnRotation = TrainerContext->GetActorRotation();
 		}
 
 		APawn* NewPawn = World->SpawnActor<APawn>(PawnClass, SpawnLocation, SpawnRotation, SpawnParams);

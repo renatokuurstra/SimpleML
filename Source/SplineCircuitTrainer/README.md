@@ -34,8 +34,16 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
 
 ## Genetic Algorithm Integration
 The trainer uses the following ECS systems in the `NewGeneration` event:
+- `UVehicleProgressSystem`: Evaluates vehicle distance along the circuit spline.
+- `UVehicleResetFlagSystem`: Flags vehicles for reset if they go off-track or stop making progress.
+- `UVehicleFitnessSystem`: Calculates fitness as the cube of the distance traveled.
 - `UEliteSelectionFloatSystem`: Selects top N entities as elites.
 - `UTournamentSelectionSystem`: Selects parents for the next generation.
 - `UBreedFloatGenomesSystem`: Creates offspring via crossover.
 - `UMutationFloatGenomeSystem`: Applies random variations to offspring.
+- `UVehicleResetSystem`: Physically resets vehicles flagged for reset back to the start.
 - `UGACleanupSystem`: Removes transient GA components for the next cycle.
+
+### UVehicleLibrary
+- `GetVehicleSpawnTransform`: Calculates location/rotation at a spline distance with vertical offset.
+- `ResetPawnPhysicalState`: Clears velocity and teleports pawn with physics reset.

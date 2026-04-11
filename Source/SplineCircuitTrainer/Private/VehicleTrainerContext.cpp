@@ -9,10 +9,13 @@
 #include "Systems/VehicleNNOutputSystem.h"
 #include "Systems/VehicleNNInputSystem.h"
 #include "Systems/VehicleProgressSystem.h"
+#include "Systems/VehicleResetFlagSystem.h"
+#include "Systems/VehicleFitnessSystem.h"
 #include "Systems/EliteSelectionFloatSystem.h"
 #include "Systems/TournamentSelectionSystem.h"
 #include "Systems/BreedFloatGenomesSystem.h"
 #include "Systems/MutationFloatGenomeSystem.h"
+#include "Systems/VehicleResetSystem.h"
 #include "Systems/GACleanupSystem.h"
 
 FName EvaluateNetworkEvent = FName("EvaluateNetworks");
@@ -51,18 +54,24 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	auto& NewGenEvent = EcsChainEvents.ChainEvents.FindOrAdd(NewGenerationEvent);
 	
 	UVehicleProgressSystem* ProgressSystem = CreateDefaultSubobject<UVehicleProgressSystem>("ProgressSys");
+	UVehicleResetFlagSystem* ResetFlagSystem = CreateDefaultSubobject<UVehicleResetFlagSystem>("ResetFlagSys");
+	UVehicleFitnessSystem* FitnessSystem = CreateDefaultSubobject<UVehicleFitnessSystem>("FitnessSys");
 	UEliteSelectionFloatSystem* EliteSys = CreateDefaultSubobject<UEliteSelectionFloatSystem>("EliteSys");
 	UTournamentSelectionSystem* SelectionSys = CreateDefaultSubobject<UTournamentSelectionSystem>("SelectionSys");
 	UBreedFloatGenomesSystem* BreedSys = CreateDefaultSubobject<UBreedFloatGenomesSystem>("BreedSys");
 	UMutationFloatGenomeSystem* MutationSys = CreateDefaultSubobject<UMutationFloatGenomeSystem>("MutationSys");
+	UVehicleResetSystem* ResetSystem = CreateDefaultSubobject<UVehicleResetSystem>("ResetSys");
 	UGACleanupSystem* CleanupSys = CreateDefaultSubobject<UGACleanupSystem>("CleanupSys");
 
 	
 	NewGenEvent.Elements.Add(ProgressSystem);
+	NewGenEvent.Elements.Add(ResetFlagSystem);
+	NewGenEvent.Elements.Add(FitnessSystem);
 	NewGenEvent.Elements.Add(EliteSys);
 	NewGenEvent.Elements.Add(SelectionSys);
 	NewGenEvent.Elements.Add(BreedSys);
 	NewGenEvent.Elements.Add(MutationSys);
+	NewGenEvent.Elements.Add(ResetSystem);
 	NewGenEvent.Elements.Add(CleanupSys);
 	
 	NewGenEvent.bIsUpdateSystems = true;

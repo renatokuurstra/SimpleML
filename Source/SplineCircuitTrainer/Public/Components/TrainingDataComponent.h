@@ -22,4 +22,12 @@ struct FTrainingDataComponent
 	/** Last recorded distance along the spline to calculate delta. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
 	float LastSplineDistance = 0.0f;
+
+	/** Maximum distance traveled in the current session. Used for progress tracking. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
+	float MaxDistanceTraveled = 0.0f;
+
+	/** Time elapsed since the last positive progress along the spline. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
+	float TimeSinceLastProgress = 0.0f;
 };
