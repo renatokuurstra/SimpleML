@@ -7,6 +7,7 @@
 #include "Systems/SimpleMLNNFloatInitSystem.h"
 #include "Systems/VehicleEntityFactory.h"
 #include "Systems/VehicleNNOutputSystem.h"
+#include "Systems/VehicleNNInputSystem.h"
 
 FName EvaluateNetworkEvent = FName("EvaluateNetworks");
 
@@ -28,11 +29,14 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	
 	//Feedforward, move inputs to outputs
 	USimpleMLNNFloatFeedforwardSystem* NNFeedForward = CreateDefaultSubobject<USimpleMLNNFloatFeedforwardSystem>("FeedForwardSys");
+	//Prepare neural network inputs
+	UVehicleNNInputSystem* NNInputSystem = CreateDefaultSubobject<UVehicleNNInputSystem>("NNInputSys");
 	//Move outputs of networks to the pawn movement functions
 	UVehicleNNOutputSystem* NNOutputSystem = CreateDefaultSubobject<UVehicleNNOutputSystem>("NNOutputSys");
 	
+	EvaluateEvent.Elements.Add(NNInputSystem);
 	EvaluateEvent.Elements.Add(NNFeedForward);
-	EvaluateEvent.Elements.Add(NNOutputSystem) ;
+	EvaluateEvent.Elements.Add(NNOutputSystem);
 }
 
 void AVehicleTrainerContext::BeginPlay()

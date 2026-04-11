@@ -4,6 +4,8 @@
 #include "VehicleComponent.h"
 #include "Components/NNIOComponents.h"
 #include "VehicleNNInterface.h"
+#include "VehicleTrainerContext.h"
+#include "VehicleTrainerConfig.h"
 #include "GameFramework/Pawn.h"
 #include "UObject/Interface.h"
 
@@ -15,7 +17,15 @@ UVehicleNNOutputSystem::UVehicleNNOutputSystem()
 
 void UVehicleNNOutputSystem::Update_Implementation(float DeltaTime)
 {
+	AVehicleTrainerContext* TrainerContext = GetTypedContext<AVehicleTrainerContext>();
+	if (!TrainerContext || !TrainerContext->TrainerConfig)
+	{
+		return;
+	}
+
 	auto View = GetView<FVehicleComponent, FNNOutFloatComp>();
+
+	const int32 OutputCount = TrainerContext->TrainerConfig->VehicleOutputCount;
 
 	for (auto Entity : View)
 	{
@@ -24,7 +34,12 @@ void UVehicleNNOutputSystem::Update_Implementation(float DeltaTime)
 
 		if (VehicleComp.VehiclePawn && VehicleComp.VehiclePawn->GetClass()->ImplementsInterface(USimpleMLVehicleNNInterface::StaticClass()))
 		{
-			Cast<ISimpleMLVehicleNNInterface>(VehicleComp.VehiclePawn)->ApplyNNOutputs(OutComp.Values);
+			if (OutComp.Values.Num() >= OutputCount)
+			{
+				// Only pass the first N elements (ignoring recurrence outputs)
+				TArrayView<const float> OutputView(OutComp.Values.GetData(), OutputCount);
+				Cast<ISimpleMLVehicleNNInterface>(VehicleComp.VehiclePawn)->ApplyNNOutputs(TArray<float>(OutputView));
+			}
 		}
 	}
 }

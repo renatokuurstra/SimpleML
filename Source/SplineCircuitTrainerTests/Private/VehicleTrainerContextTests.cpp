@@ -40,15 +40,8 @@ TEST_CLASS(SplineCircuitTrainer_VehicleTrainerContext_Tests, "SplineCircuitTrain
 		UVehicleTrainerConfig* Config = NewObject<UVehicleTrainerConfig>();
 		Config->VehiclePawnClass = ATestVehiclePawn::StaticClass();
 		Config->Population = 5;
-		
-		// Setup minimal NN descriptors to avoid initialization issues
-		FNeuralNetworkLayerDescriptor InputLayer;
-		InputLayer.NeuronCount = 2;
-		Config->NNLayerDescriptors.Add(InputLayer);
-		
-		FNeuralNetworkLayerDescriptor OutputLayer;
-		OutputLayer.NeuronCount = 2;
-		Config->NNLayerDescriptors.Add(OutputLayer);
+		Config->HiddenLayerSizes = { 16 };
+		Config->VehicleOutputCount = 2;
 
 		// 2. Spawn Trainer
 		AVehicleTrainerContext* Trainer = World->SpawnActor<AVehicleTrainerContext>();
@@ -80,11 +73,8 @@ TEST_CLASS(SplineCircuitTrainer_VehicleTrainerContext_Tests, "SplineCircuitTrain
 		Config->VehiclePawnClass = ATestVehiclePawn::StaticClass();
 		Config->Population = 4;
 		Config->NetworkUpdateFrequencyMS = 100.0f; // Enable timer
-
-		// Setup NN descriptors: 2 inputs, 1 hidden (4 neurons), 2 outputs
-		Config->NNLayerDescriptors.Add(FNeuralNetworkLayerDescriptor(2));
-		Config->NNLayerDescriptors.Add(FNeuralNetworkLayerDescriptor(4));
-		Config->NNLayerDescriptors.Add(FNeuralNetworkLayerDescriptor(2));
+		Config->HiddenLayerSizes = { 4 };
+		Config->VehicleOutputCount = 2;
 
 		// 2. Spawn Trainer
 		AVehicleTrainerContext* Trainer = World->SpawnActor<AVehicleTrainerContext>();

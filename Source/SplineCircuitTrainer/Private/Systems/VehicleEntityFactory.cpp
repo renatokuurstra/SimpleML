@@ -86,15 +86,15 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 			FitComp.Fitness[0] = 0.0f;
 			FitComp.BuiltForFitnessIndex = 0;
 
-			// Initialize Neural Network from config
-			if (TrainerContext->TrainerConfig->NNLayerDescriptors.Num() >= 2)
+	// Initialize Neural Network from config
+			TArray<FNeuralNetworkLayerDescriptor> LayerDescriptors = TrainerContext->TrainerConfig->GetNNLayerDescriptors();
+			if (LayerDescriptors.Num() >= 2)
 			{
-				NetComp.Initialize(TrainerContext->TrainerConfig->NNLayerDescriptors, i);
+				NetComp.Initialize(LayerDescriptors, i);
 				
-				// Set NN input and output sizes based on descriptors (first layer input, last layer output)
-				InComp.Values.Init(0.5f, TrainerContext->TrainerConfig->NNLayerDescriptors[0].NeuronCount);
-				//InComp.Values.SetNumZeroed(TrainerContext->TrainerConfig->NNLayerDescriptors[0].NeuronCount);
-				OutComp.Values.SetNumZeroed(TrainerContext->TrainerConfig->NNLayerDescriptors.Last().NeuronCount);
+				// Set NN input and output sizes based on descriptors
+				InComp.Values.Init(0.5f, TrainerContext->TrainerConfig->GetTotalInputCount());
+				OutComp.Values.SetNumZeroed(TrainerContext->TrainerConfig->GetTotalOutputCount());
 			}
 		}
 	}
