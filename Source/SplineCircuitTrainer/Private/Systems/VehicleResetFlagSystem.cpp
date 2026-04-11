@@ -31,6 +31,7 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 
 	float MaxDistThreshold = TrainerContext->TrainerConfig->MaxSplineDistanceThreshold;
 	float NoProgressTimeout = TrainerContext->TrainerConfig->NoProgressTimeout;
+	float MinProgress = TrainerContext->TrainerConfig->MinimumProgressBetweenEvaluations;
 
 	auto View = GetView<FVehicleComponent, FTrainingDataComponent>();
 	entt::registry& Registry = GetRegistry();
@@ -64,7 +65,7 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 		}
 
 		// 2. Check for positive progress
-		if (TrainingData.DistanceTraveled > TrainingData.MaxDistanceTraveled)
+		if (TrainingData.DistanceTraveled > TrainingData.MaxDistanceTraveled + MinProgress)
 		{
 			TrainingData.MaxDistanceTraveled = TrainingData.DistanceTraveled;
 			TrainingData.TimeSinceLastProgress = 0.0f;

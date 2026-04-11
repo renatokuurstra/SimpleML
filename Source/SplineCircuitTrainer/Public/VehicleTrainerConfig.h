@@ -87,6 +87,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
 	float NoProgressTimeout = 2.0f;
 
+	/** Minimum progress in centimeters required between evaluations to avoid reset */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	float MinimumProgressBetweenEvaluations = 10.0f;
+
 	/** Helper to calculate layer descriptors based on current settings */
 	UFUNCTION(BlueprintCallable, Category = "Neural Network")
 	TArray<FNeuralNetworkLayerDescriptor> GetNNLayerDescriptors() const;

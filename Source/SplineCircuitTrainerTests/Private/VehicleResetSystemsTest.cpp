@@ -43,6 +43,7 @@ TEST_CLASS(SplineCircuitTrainer_VehicleResetSystems_Tests, "SplineCircuitTrainer
 		Config = NewObject<UVehicleTrainerConfig>();
 		Config->MaxSplineDistanceThreshold = 1000.0f;
 		Config->NoProgressTimeout = 1.0f;
+		Config->MinimumProgressBetweenEvaluations = 10.0f;
 		Context->TrainerConfig = Config;
 
 		FlagSystem = NewObject<UVehicleResetFlagSystem>();
@@ -100,5 +101,30 @@ TEST_CLASS(SplineCircuitTrainer_VehicleResetSystems_Tests, "SplineCircuitTrainer
 
 		FlagSystem->Update(0.5f);
 		ASSERT_THAT(IsTrue(Registry.all_of<FResetGenomeComponent>(Entity), "Should be flagged after 1.1s of no progress"));
+	}
+
+	TEST_METHOD(FlagsInsufficientProgressVehicle)
+	{
+		APawn* Pawn = World->SpawnActor<APawn>();
+		Pawn->SetActorLocation(FVector(100, 0, 0));
+
+		entt::registry& Registry = Context->GetRegistry();
+		entt::entity Entity = Registry.create();
+		Registry.emplace<FVehicleComponent>(Entity, Pawn);
+		FTrainingDataComponent& Data = Registry.emplace<FTrainingDataComponent>(Entity);
+		
+		// Configured MinProgress is 10.0 cm, Timeout is 1.0s
+		Data.DistanceTraveled = 50.0f;
+		Data.MaxDistanceTraveled = 50.0f;
+		Data.TimeSinceLastProgress = 0.0f;
+
+		// Move 5cm (less than 10cm)
+		Data.DistanceTraveled = 55.0f;
+		FlagSystem->Update(0.6f);
+		ASSERT_THAT(IsFalse(Registry.all_of<FResetGenomeComponent>(Entity), "Should not be flagged yet (0.6s < 1.0s, even if progress < 10cm)"));
+
+		// Total time 1.1s, still only 5cm progress
+		FlagSystem->Update(0.5f);
+		ASSERT_THAT(IsTrue(Registry.all_of<FResetGenomeComponent>(Entity), "Should be flagged after 1.1s because progress (5cm) < MinProgress (10cm)"));
 	}
 };
