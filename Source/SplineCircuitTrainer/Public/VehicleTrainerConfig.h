@@ -49,6 +49,36 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network", meta = (Units = "ms"))
 	float NetworkUpdateFrequencyMS = 20.0f;
 
+	// Genetic Algorithm Settings
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	int32 EliteCount = 2;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	int32 TournamentSize = 5;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	float SelectionPressure = 0.85f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	float MutationRate = 0.05f;
+
+	/** Multiplicative delta for mutation: ± this percent */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	float PerValueDeltaPercent = 0.02f;
+
+	/** Chance to trigger a random reset mutation on a value */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	float RandomMutationChance = 0.01f;
+
+	/** Breeding eta parameter (crossover) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	float BreedingEta = 10.0f;
+
+	/** Percentage of population (worst performers) to reset each generation */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	float BottomResetFraction = 0.2f;
+
 	/** Helper to calculate layer descriptors based on current settings */
 	UFUNCTION(BlueprintCallable, Category = "Neural Network")
 	TArray<FNeuralNetworkLayerDescriptor> GetNNLayerDescriptors() const;

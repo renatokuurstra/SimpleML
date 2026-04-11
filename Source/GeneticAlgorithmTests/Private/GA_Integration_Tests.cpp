@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
+// Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
 // GA Integration Tests: end-to-end CQTests for binary (char) and float genomes, sharing setup.
 
 #include "CoreMinimal.h"
@@ -29,7 +29,7 @@
 #include "Systems/SimpleMLNNFloatInitSystem.h"
 #include "Systems/SimpleMLNNFloatFeedforwardSystem.h"
 
-TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
+TEST_CLASS(GeneticAlgorithm_Integration_Tests, "GeneticAlgorithm.Integration")
 {
 	// Shared per-test state
 	entt::registry Registry;
@@ -44,7 +44,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 
 	// Systems (char + float variants initialized every test; unused ones are harmless)
 	UTournamentSelectionSystem* Selection = nullptr;
- UGACleanupSystem* Cleanup = nullptr;
+	UGACleanupSystem* Cleanup = nullptr;
 
 	UEliteSelectionCharSystem* EliteChar = nullptr;
 	UBreedCharGenomesSystem* BreederChar = nullptr;
@@ -221,7 +221,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				const TArrayView<char>& ViewBest = Registry.get<FGenomeCharViewComponent>(BestEntity).Values;
 				for (int32 i = 0; i < GenomeLen; ++i) { BestSoFar[i] = (i < ViewBest.Num()) ? ViewBest[i] : 0; }
 				bool bEqual = true;
-				for (int32 i = 0; i < GenomeLen; ++i) { if (static_cast<uint8>(BestSoFar[i]) != TargetBytes[i]) { bEqual = false; break; } }
+				for (int32 i = 0; i < GenomeLen; i++) { if (static_cast<uint8>(BestSoFar[i]) != TargetBytes[i]) { bEqual = false; break; } }
 				const FString BestHex = ToHex(reinterpret_cast<const uint8*>(BestSoFar.GetData()), GenomeLen);
 				const FString TargetHex = ToHex(TargetBytes.GetData(), GenomeLen);
 				if ((Gen % 10) == 0)
@@ -236,8 +236,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				}
 			}
 
-			// 3) Elite selection → tournament selection → breeding → mutation → cleanup
-			// 3) Elite selection → tournament selection → breeding → mutation → cleanup
+			// 3) Elite selection -> tournament selection -> breeding -> mutation -> cleanup
 			EliteChar->Update_Implementation(0.0f);
 			Selection->Update_Implementation(0.0f);
 			BreederChar->Update_Implementation(0.0f);
@@ -415,7 +414,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				}
 			}
 
-			// 3) Elite selection → tournament selection → breeding → mutation → cleanup (float variants)
+			// 3) Elite selection -> tournament selection -> breeding -> mutation -> cleanup (float variants)
 			EliteFloat->Update_Implementation(0.0f);
 			Selection->Update_Implementation(0.0f);
 			BreederFloat->Update_Implementation(0.0f);
@@ -453,13 +452,11 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 	TEST_METHOD(Learns_Rectangle_Area_With_Tiny_NN)
 	{
 		// GA trains a tiny NN to approximate rectangle area using the SimpleML network and systems.
-		// Topology: [2 inputs] -> [3 hidden ReLU] -> [1 output]. Per-generation evaluation uses N samples; fitness accumulates within the generation: sum_j pow(1 - |yhat_j - x_j*y_j|, 3).
 		PopulationSize = 200;
 		BottomResetFraction = 0.35f;
 		MaxGenerations = 7000; // steps
 		
 		// Initialize selection and cleanup (shared)
-		
 		Selection->TournamentSize = 12;
 		Selection->SelectionPressure = 0.9f;
 
@@ -481,7 +478,6 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 		IEcsEventElement::Execute_Initialize(NNForward, nullptr);
 		
 		// Randomized training samples (x, y) in [0.1, 1]; area = x*y.
-		// Deterministic across runs by using a fixed seed.
 		FRandomStream RngSamples(Seed + 100);
 		TArray<FNeuralNetworkLayerDescriptor> Desc = {
 			FNeuralNetworkLayerDescriptor(2),
@@ -489,7 +485,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			FNeuralNetworkLayerDescriptor(6),
 			FNeuralNetworkLayerDescriptor(1)
 		};
-		// Determine genome length from the SimpleML network memory layout for [2]->[3]->[1]
+		// Determine genome length from the SimpleML network memory layout
 		int32 GenomeLen = 0;
 		{
 			TNeuralNetwork<float, FNeuron> Tmp;
@@ -573,7 +569,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			// Ensure networks have randomized weights and bIsInitialized set (once)
 			NNInit->Update_Implementation(0.0f);
 			
-			// Map current genomes to network memory for all entities (keeps NN in sync with GA)
+			// Map current genomes to network memory for all entities
 			for (int32 i = 0; i < PopulationSize; ++i)
 			{
 				const entt::entity E = Entities[i];
@@ -582,7 +578,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				MapGenomeToNetwork(NetComp, G);
 			}
 			
-			// Reset fitness at the start of the generation (accumulate within this generation)
+			// Reset fitness at the start of the generation
 			{
 				auto ViewFitReset = Registry.view<FFitnessComponent>();
 				for (auto E : ViewFitReset)
@@ -598,7 +594,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			{
 				const float X = FMath::Lerp(0.1f, 1.0f, RngSamples.FRand());
 				const float Y = FMath::Lerp(0.1f, 1.0f, RngSamples.FRand());
-				const float Target = X * Y;
+				const float Tgt = X * Y;
 				// Set inputs for all entities
 				for (int32 i = 0; i < PopulationSize; ++i)
 				{
@@ -608,21 +604,15 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				}
 				// Run forward pass for all
 				NNForward->Update_Implementation(0.0f);
-				// Accumulate fitness and tag invalid outputs (exclude elites from tagging)
+				// Accumulate fitness
 				for (int32 i = 0; i < PopulationSize; ++i)
 				{
 					const entt::entity E = Entities[i];
 					const FNNOutFloatComp& Out = Registry.get<FNNOutFloatComp>(E);
-					ensure(Out.Values.Num() > 0);
 					const float NetworkOutput = Out.Values[0];
-					if (NetworkOutput < 0.0f && !Registry.all_of<FEliteTagComponent>(E))
-					{
-						if (!Registry.all_of<FResetGenomeComponent>(E)) { Registry.emplace<FResetGenomeComponent>(E); }
-					}
-					const float Diff = FMath::Abs(NetworkOutput - Target);
+					const float Diff = FMath::Abs(NetworkOutput - Tgt);
 					const float Score = FMath::Pow(1.0f - FMath::Clamp(Diff, 0.0f, 1.0f), 3.0f);
 					FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
-					if (Fit.Fitness.Num() < 1) { Fit.Fitness.SetNum(1, EAllowShrinking::No); }
 					Fit.Fitness[0] += Score;
 				}
 			}
@@ -654,23 +644,6 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 				}
 			}
 			
-			// Track best (accumulated) and maybe early stop
-			float BestFitnessLocal = -FLT_MAX; entt::entity BestEntity = entt::null;
-			auto ViewBest = Registry.view<FFitnessComponent, FGenomeFloatViewComponent>();
-			for (auto E : ViewBest)
-			{
-				const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
-				const float F0 = Fit.Fitness.Num() > 0 ? Fit.Fitness[0] : -FLT_MAX;
-				if (F0 > BestFitnessLocal) { BestFitnessLocal = F0; BestEntity = E; }
-			}
-			if (BestEntity != entt::null)
-			{
-				if ((Step % 25) == 0)
-				{
-					UE_LOG(LogTemp, Display, TEXT("[GA NN Area x SimpleML] Step=%d BestAccumulated=%.3f / N=%d"), Step, BestFitnessLocal, SamplesPerGeneration);
-				}
-			}
-			
 			// GA step using float systems
 			EliteFloat->Update_Implementation(0.0f);
 			Selection->Update_Implementation(0.0f);
@@ -679,7 +652,7 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			Cleanup->Update_Implementation(0.0f);
 		}
 		
-		// Final evaluation and assertion based on accumulated fitness in last generation
+		// Final validation
 		float BestFitnessFinal = -FLT_MAX;
 		entt::entity BestEntityFinal = entt::null;
 		auto ViewFinal = Registry.view<FFitnessComponent, FGenomeFloatViewComponent, FNeuralNetworkFloat>();
@@ -690,11 +663,8 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			if (F0 > BestFitnessFinal) { BestFitnessFinal = F0; BestEntityFinal = E; }
 		}
 
-		// Post-training validation: take the best solution and run 10 random checks.
-		// If any check exceeds 10% error vs expected area, fail the test.
 		if (BestEntityFinal != entt::null)
 		{
-			// Ensure the best entity's network reflects its genome
 			FNeuralNetworkFloat& BestNet = Registry.get<FNeuralNetworkFloat>(BestEntityFinal);
 			const TArrayView<float>& BestGenome = Registry.get<FGenomeFloatViewComponent>(BestEntityFinal).Values;
 			MapGenomeToNetwork(BestNet, BestGenome);
@@ -705,33 +675,24 @@ TEST_CLASS(SimpleML_GA_E2E, "SimpleML.GA.Integration")
 			{
 				const float X = FMath::Lerp(0.1f, 1.0f, RngChecks.FRand());
 				const float Y = FMath::Lerp(0.1f, 1.0f, RngChecks.FRand());
-				const float Target = X * Y;
-				// Set inputs for best entity
+				const float Tgt = X * Y;
 				FNNInFLoatComp& InBest = Registry.get<FNNInFLoatComp>(BestEntityFinal);
 				InBest.Values[0] = X; InBest.Values[1] = Y;
-				// Run forward for all (cheap); we will read best entity's output
 				NNForward->Update_Implementation(0.0f);
 				const FNNOutFloatComp& OutBest = Registry.get<FNNOutFloatComp>(BestEntityFinal);
 				const float YHat = OutBest.Values.Num() > 0 ? OutBest.Values[0] : 0.0f;
-				const float AbsErr = FMath::Abs(YHat - Target);
-				const float Den = FMath::Max(Target, 1e-3f);
-					const float ErrPct = (Den > 0.0f) ? (AbsErr / Den) : AbsErr; // relative except near zero target
-				UE_LOG(LogTemp, Display, TEXT("[GA NN Area x SimpleML][PostCheck %d/10] x=%.4f y=%.4f target=%.6f yhat=%.6f err%%=%.2f"),
-					CheckIdx + 1, X, Y, Target, YHat, ErrPct * 100.0f);
-				if (ErrPct > 0.10f)
-				{
-					bAllChecksUnder10Pct = false;
-				}
+				const float AbsErr = FMath::Abs(YHat - Tgt);
+				const float Den = FMath::Max(Tgt, 1e-3f);
+				const float ErrPct = AbsErr / Den;
+				if (ErrPct > 0.10f) { bAllChecksUnder10Pct = false; }
 			}
-			ASSERT_THAT(IsTrue(bAllChecksUnder10Pct, "NN should approximate the rectangle area within 10% relative error for all validation samples"));
+			ASSERT_THAT(IsTrue(bAllChecksUnder10Pct, "NN should approximate the rectangle area within 10% relative error"));
 		}
 		else
 		{
-			// If we failed to identify a best entity, fail explicitly for visibility
 			ASSERT_THAT(IsTrue(false, "GA failed to produce any valid best entity after training"));
 		}
 		
-		// Cleanup NN systems
 		NNForward->Deinitialize();
 		NNInit->Deinitialize();
 	}

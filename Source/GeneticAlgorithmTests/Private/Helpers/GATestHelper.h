@@ -1,10 +1,11 @@
-﻿// Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
+// Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
 #pragma once
 
 #include "CoreMinimal.h"
 #include "entt/entt.hpp"
 #include "Containers/Array.h"
 #include "Containers/ArrayView.h"
+#include "Math/RandomStream.h"
 
 // Forward declarations for components used by helpers
 struct FGenomeCharViewComponent;

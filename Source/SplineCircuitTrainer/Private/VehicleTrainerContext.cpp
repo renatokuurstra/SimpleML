@@ -8,8 +8,14 @@
 #include "Systems/VehicleEntityFactory.h"
 #include "Systems/VehicleNNOutputSystem.h"
 #include "Systems/VehicleNNInputSystem.h"
+#include "Systems/EliteSelectionFloatSystem.h"
+#include "Systems/TournamentSelectionSystem.h"
+#include "Systems/BreedFloatGenomesSystem.h"
+#include "Systems/MutationFloatGenomeSystem.h"
+#include "Systems/GACleanupSystem.h"
 
 FName EvaluateNetworkEvent = FName("EvaluateNetworks");
+FName NewGenerationEvent = FName("NewGeneration");
 
 AVehicleTrainerContext::AVehicleTrainerContext()
 {
@@ -37,6 +43,20 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	EvaluateEvent.Elements.Add(NNInputSystem);
 	EvaluateEvent.Elements.Add(NNFeedForward);
 	EvaluateEvent.Elements.Add(NNOutputSystem);
+
+	auto& NewGenEvent = EcsChainEvents.ChainEvents.FindOrAdd(NewGenerationEvent);
+
+	UEliteSelectionFloatSystem* EliteSys = CreateDefaultSubobject<UEliteSelectionFloatSystem>("EliteSys");
+	UTournamentSelectionSystem* SelectionSys = CreateDefaultSubobject<UTournamentSelectionSystem>("SelectionSys");
+	UBreedFloatGenomesSystem* BreedSys = CreateDefaultSubobject<UBreedFloatGenomesSystem>("BreedSys");
+	UMutationFloatGenomeSystem* MutationSys = CreateDefaultSubobject<UMutationFloatGenomeSystem>("MutationSys");
+	UGACleanupSystem* CleanupSys = CreateDefaultSubobject<UGACleanupSystem>("CleanupSys");
+
+	NewGenEvent.Elements.Add(EliteSys);
+	NewGenEvent.Elements.Add(SelectionSys);
+	NewGenEvent.Elements.Add(BreedSys);
+	NewGenEvent.Elements.Add(MutationSys);
+	NewGenEvent.Elements.Add(CleanupSys);
 }
 
 void AVehicleTrainerContext::BeginPlay()
@@ -64,6 +84,46 @@ void AVehicleTrainerContext::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AVehicleTrainerContext::OnEvaluateNetworks()
 {
 	ExecuteEvent(TEXT("EvaluateNetworks"));
+}
+
+void AVehicleTrainerContext::NextGeneration()
+{
+	if (!TrainerConfig)
+	{
+		return;
+	}
+
+	FChainEventData* GenEventData = EcsChainEvents.ChainEvents.Find(NewGenerationEvent);
+	if (!GenEventData)
+	{
+		return;
+	}
+
+	for (auto& Element : GenEventData->Elements)
+	{
+		if (UEliteSelectionFloatSystem* EliteSys = Cast<UEliteSelectionFloatSystem>(Element.GetInterface()))
+		{
+			EliteSys->EliteCount = TrainerConfig->EliteCount;
+			EliteSys->bHigherIsBetter = true;
+		}
+		else if (UTournamentSelectionSystem* SelectionSys = Cast<UTournamentSelectionSystem>(Element.GetInterface()))
+		{
+			SelectionSys->TournamentSize = TrainerConfig->TournamentSize;
+			SelectionSys->SelectionPressure = TrainerConfig->SelectionPressure;
+			SelectionSys->bHigherIsBetter = true;
+		}
+		else if (UBreedFloatGenomesSystem* BreedSys = Cast<UBreedFloatGenomesSystem>(Element.GetInterface()))
+		{
+			BreedSys->Eta = TrainerConfig->BreedingEta;
+		}
+		else if (UMutationFloatGenomeSystem* MutationSys = Cast<UMutationFloatGenomeSystem>(Element.GetInterface()))
+		{
+			MutationSys->PerValueDeltaPercent = TrainerConfig->PerValueDeltaPercent;
+			MutationSys->RandomMutationChance = TrainerConfig->RandomMutationChance;
+		}
+	}
+
+	ExecuteEvent(NewGenerationEvent);
 }
 
 USplineComponent* AVehicleTrainerContext::GetCircuitSpline() const

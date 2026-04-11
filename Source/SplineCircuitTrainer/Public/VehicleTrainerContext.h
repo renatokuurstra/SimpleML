@@ -31,6 +31,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Trainer")
 	USplineComponent* GetCircuitSpline() const;
 
+	/** Triggers the GA evolution step (Selection -> Breeding -> Mutation -> Cleanup) */
+	UFUNCTION(BlueprintCallable, Category = "Trainer")
+	void NextGeneration();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

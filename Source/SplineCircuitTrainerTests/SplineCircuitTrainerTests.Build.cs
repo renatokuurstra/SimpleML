@@ -17,6 +17,7 @@ public class SplineCircuitTrainerTests : ModuleRules
             "SplineCircuitTrainer",
             "SimpleML",
             "SimpleMLInterfaces",
+            "GeneticAlgorithm",
             "CQTest"
         });
 
