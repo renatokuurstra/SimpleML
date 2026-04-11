@@ -23,6 +23,9 @@ public:
 	TSubclassOf<APawn> VehiclePawnClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
+	float SpawnVerticalOffset = 0.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	int32 Population = 10;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Structure")

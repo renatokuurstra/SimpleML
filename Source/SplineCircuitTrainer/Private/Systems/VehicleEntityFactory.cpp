@@ -59,6 +59,14 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 		{
 			SpawnLocation = Spline->GetLocationAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);
 			SpawnRotation = Spline->GetRotationAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);
+
+			// Apply vertical offset from config based on spline's up vector
+			float VerticalOffset = TrainerContext->TrainerConfig->SpawnVerticalOffset;
+			if (VerticalOffset != 0.0f)
+			{
+				FVector UpVector = Spline->GetUpVectorAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);
+				SpawnLocation += UpVector * VerticalOffset;
+			}
 		}
 
 		APawn* NewPawn = World->SpawnActor<APawn>(PawnClass, SpawnLocation, SpawnRotation, SpawnParams);

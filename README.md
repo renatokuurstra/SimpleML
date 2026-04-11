@@ -78,7 +78,7 @@ Key headers (under `Plugins/SimpleML/Source/GeneticAlgorithm/Public`):
 
   ### SplineCircuitTrainer
   - `AVehicleTrainerContext`: ECS context (AEcsContext) with references to an actor with a spline circuit and a trainer configuration.
-  - `UVehicleTrainerConfig`: Data asset holding trainer settings. It automatically manages the neural network structure based on inputs (spline distance, velocity, future path, recurrence) and hidden layer configuration.
+  - `UVehicleTrainerConfig`: Data asset holding trainer settings. It automatically manages the neural network structure based on inputs (spline distance, velocity, future path, recurrence) and hidden layer configuration. Includes `SpawnVerticalOffset` for positioning vehicles.
   - `UVehicleEntityFactory`: ECS system that spawns pawns and creates entities. It initializes the neural network based on `UVehicleTrainerConfig` parameters.
   - `UVehicleNNInputSystem`: ECS system that generates inputs for the neural network based on vehicle position relative to the spline, velocity, and previous outputs (recurrence).
   - `UVehicleNNOutputSystem`: ECS system that applies the neural network outputs back to the vehicle pawn via `ISimpleMLVehicleNNInterface`.
