@@ -17,7 +17,11 @@ public class SplineCircuitTrainer : ModuleRules
             "SimpleML",
             "SimpleMLInterfaces",
             "GeneticAlgorithm",
-            "AIModule"
+            "AIModule",
+            "SlateIM",
+            "Slate",
+            "SlateCore",
+            "AppFramework"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[]

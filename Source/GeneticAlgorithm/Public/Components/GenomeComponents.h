@@ -61,3 +61,28 @@ struct GENETICALGORITHM_API FResetGenomeComponent
 	GENERATED_BODY()
 	// Intentionally empty
 };
+
+/**
+ * Debug information component for GeneticAlgorithm module.
+ * Stores summarized data for visualization.
+ */
+USTRUCT(BlueprintType)
+struct GENETICALGORITHM_API FGeneticAlgorithmDebugComponent
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm|Debug")
+	int32 EliteCount = 0;
+
+	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm|Debug")
+	TArray<float> EliteFitness;
+
+	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm|Debug")
+	TArray<float> BreedingPairsFitness; // Flattened [ParentA_Fit, ParentB_Fit, ...]
+
+	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm|Debug")
+	TArray<float> AllSolutionsFitness;
+
+	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm|Debug")
+	int32 ResetCount = 0;
+};

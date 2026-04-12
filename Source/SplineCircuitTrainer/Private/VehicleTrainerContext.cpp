@@ -18,6 +18,8 @@
 #include "Systems/MutationFloatGenomeSystem.h"
 #include "Systems/VehicleResetSystem.h"
 #include "Systems/GACleanupSystem.h"
+#include "Systems/GADebugDataSystem.h"
+#include "Systems/VehicleTrainerDebugSystem.h"
 
 FName EvaluateNetworkEvent = FName("EvaluateNetworks");
 FName NewGenerationEvent = FName("NewGeneration");
@@ -35,6 +37,10 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 
 	BeginPlayEvent.Elements.Add(VehicleEntityFactory);
 	BeginPlayEvent.Elements.Add(InitSystem);
+
+	// Create a dedicated debug entity
+	const entt::entity DebugEntity = GetRegistry().create();
+	GetRegistry().emplace<FGeneticAlgorithmDebugComponent>(DebugEntity);
 	
 	auto& EvaluateEvent = EcsChainEvents.ChainEvents.FindOrAdd(EvaluateNetworkEvent);
 	
@@ -76,9 +82,19 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	NewGenEvent.Elements.Add(MutationSys);
 	NewGenEvent.Elements.Add(ResetSystem);
 	NewGenEvent.Elements.Add(CleanupSys);
+
+	UGADebugDataSystem* GADebugDataSys = CreateDefaultSubobject<UGADebugDataSystem>("GADebugDataSys");
+	UVehicleTrainerDebugSystem* VehicleDebugSys = CreateDefaultSubobject<UVehicleTrainerDebugSystem>("VehicleDebugSys");
+	
+	NewGenEvent.Elements.Add(GADebugDataSys);
 	
 	NewGenEvent.bIsUpdateSystems = true;
 	NewGenEvent.UpdateFreqSec = 0.5f;
+
+	auto& PostUpdateEvent = EcsChainEvents.ChainEvents.FindOrAdd(FEcsChainEventNames::PostUpdate);
+	PostUpdateEvent.Elements.Add(VehicleDebugSys);
+	PostUpdateEvent.bIsUpdateSystems = true;
+	PostUpdateEvent.UpdateFreqSec = 0.0f; // Run every frame
 }
 
 void AVehicleTrainerContext::EndPlay(const EEndPlayReason::Type EndPlayReason)
