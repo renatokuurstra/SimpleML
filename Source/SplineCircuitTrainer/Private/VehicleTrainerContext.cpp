@@ -20,6 +20,7 @@
 #include "Systems/GACleanupSystem.h"
 #include "Systems/GADebugDataSystem.h"
 #include "Systems/VehicleTrainerDebugSystem.h"
+#include "Components/GenomeComponents.h"
 
 FName EvaluateNetworkEvent = FName("EvaluateNetworks");
 FName NewGenerationEvent = FName("NewGeneration");
@@ -58,7 +59,7 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	EvaluateEvent.bIsUpdateSystems = true;
 	EvaluateEvent.UpdateFreqSec = 0.1f;
 	
-	auto& NewGenEvent = EcsChainEvents.ChainEvents.FindOrAdd(NewGenerationEvent);
+	auto& GAEvent = EcsChainEvents.ChainEvents.FindOrAdd(NewGenerationEvent);
 	
 	UVehicleProgressSystem* ProgressSystem = CreateDefaultSubobject<UVehicleProgressSystem>("ProgressSys");
 	UVehicleResetFlagSystem* ResetFlagSystem = CreateDefaultSubobject<UVehicleResetFlagSystem>("ResetFlagSys");
@@ -72,29 +73,85 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	UGACleanupSystem* CleanupSys = CreateDefaultSubobject<UGACleanupSystem>("CleanupSys");
 
 	
-	NewGenEvent.Elements.Add(ProgressSystem);
-	NewGenEvent.Elements.Add(ResetFlagSystem);
-	NewGenEvent.Elements.Add(FitnessEligibilitySystem);
-	NewGenEvent.Elements.Add(FitnessSystem);
-	NewGenEvent.Elements.Add(EliteSys);
-	NewGenEvent.Elements.Add(SelectionSys);
-	NewGenEvent.Elements.Add(BreedSys);
-	NewGenEvent.Elements.Add(MutationSys);
-	NewGenEvent.Elements.Add(ResetSystem);
-	NewGenEvent.Elements.Add(CleanupSys);
+	GAEvent.Elements.Add(ProgressSystem);
+	GAEvent.Elements.Add(ResetFlagSystem);
+	GAEvent.Elements.Add(FitnessEligibilitySystem);
+	GAEvent.Elements.Add(FitnessSystem);
+	GAEvent.Elements.Add(EliteSys);
+	GAEvent.Elements.Add(SelectionSys);
+	GAEvent.Elements.Add(BreedSys);
+	GAEvent.Elements.Add(MutationSys);
+	GAEvent.Elements.Add(ResetSystem);
+	GAEvent.Elements.Add(CleanupSys);
 
 	UGADebugDataSystem* GADebugDataSys = CreateDefaultSubobject<UGADebugDataSystem>("GADebugDataSys");
 	UVehicleTrainerDebugSystem* VehicleDebugSys = CreateDefaultSubobject<UVehicleTrainerDebugSystem>("VehicleDebugSys");
 	
-	NewGenEvent.Elements.Add(GADebugDataSys);
+	GAEvent.Elements.Add(GADebugDataSys);
+	GAEvent.Elements.Add(VehicleDebugSys);
 	
-	NewGenEvent.bIsUpdateSystems = true;
-	NewGenEvent.UpdateFreqSec = 0.5f;
+	GAEvent.bIsUpdateSystems = true;
+	GAEvent.UpdateFreqSec = 0.5f;
 
-	auto& PostUpdateEvent = EcsChainEvents.ChainEvents.FindOrAdd(FEcsChainEventNames::PostUpdate);
-	PostUpdateEvent.Elements.Add(VehicleDebugSys);
-	PostUpdateEvent.bIsUpdateSystems = true;
-	PostUpdateEvent.UpdateFreqSec = 0.0f; // Run every frame
+	InitializeSystemsFromConfig();
+}
+
+void AVehicleTrainerContext::PostInitProperties()
+{
+	Super::PostInitProperties();
+	InitializeSystemsFromConfig();
+}
+
+void AVehicleTrainerContext::PostLoad()
+{
+	Super::PostLoad();
+	InitializeSystemsFromConfig();
+}
+
+void AVehicleTrainerContext::InitializeSystemsFromConfig()
+{
+	if (!TrainerConfig)
+	{
+		return;
+	}
+
+	// Update Chain Event frequencies
+	if (FChainEventData* EvaluateEvent = EcsChainEvents.ChainEvents.Find(EvaluateNetworkEvent))
+	{
+		EvaluateEvent->UpdateFreqSec = TrainerConfig->NetworkUpdateFrequencyMS / 1000.0f;
+	}
+
+	// Iterate through systems in NewGenerationEvent and EvaluateNetworkEvent to initialize parameters
+	TArray<FName> EventNames = { EvaluateNetworkEvent, NewGenerationEvent, FEcsChainEventNames::BeginPlay };
+	for (const FName& EventName : EventNames)
+	{
+		if (FChainEventData* EventData = EcsChainEvents.ChainEvents.Find(EventName))
+		{
+			for (auto& Element : EventData->Elements)
+			{
+				if (UEliteSelectionFloatSystem* EliteSys = Cast<UEliteSelectionFloatSystem>(Element.GetInterface()))
+				{
+					EliteSys->EliteCount = TrainerConfig->EliteCount;
+					EliteSys->bHigherIsBetter = true;
+				}
+				else if (UTournamentSelectionSystem* SelectionSys = Cast<UTournamentSelectionSystem>(Element.GetInterface()))
+				{
+					SelectionSys->TournamentSize = TrainerConfig->TournamentSize;
+					SelectionSys->SelectionPressure = TrainerConfig->SelectionPressure;
+					SelectionSys->bHigherIsBetter = true;
+				}
+				else if (UBreedFloatGenomesSystem* BreedSys = Cast<UBreedFloatGenomesSystem>(Element.GetInterface()))
+				{
+					BreedSys->Eta = TrainerConfig->BreedingEta;
+				}
+				else if (UMutationFloatGenomeSystem* MutationSys = Cast<UMutationFloatGenomeSystem>(Element.GetInterface()))
+				{
+					MutationSys->PerValueDeltaPercent = TrainerConfig->PerValueDeltaPercent;
+					MutationSys->RandomMutationChance = TrainerConfig->RandomMutationChance;
+				}
+			}
+		}
+	}
 }
 
 void AVehicleTrainerContext::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -106,47 +163,7 @@ void AVehicleTrainerContext::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AVehicleTrainerContext::OnEvaluateNetworks()
 {
-	ExecuteEvent(TEXT("EvaluateNetworks"));
-}
-
-void AVehicleTrainerContext::NextGeneration()
-{
-	if (!TrainerConfig)
-	{
-		return;
-	}
-
-	FChainEventData* GenEventData = EcsChainEvents.ChainEvents.Find(NewGenerationEvent);
-	if (!GenEventData)
-	{
-		return;
-	}
-
-	for (auto& Element : GenEventData->Elements)
-	{
-		if (UEliteSelectionFloatSystem* EliteSys = Cast<UEliteSelectionFloatSystem>(Element.GetInterface()))
-		{
-			EliteSys->EliteCount = TrainerConfig->EliteCount;
-			EliteSys->bHigherIsBetter = true;
-		}
-		else if (UTournamentSelectionSystem* SelectionSys = Cast<UTournamentSelectionSystem>(Element.GetInterface()))
-		{
-			SelectionSys->TournamentSize = TrainerConfig->TournamentSize;
-			SelectionSys->SelectionPressure = TrainerConfig->SelectionPressure;
-			SelectionSys->bHigherIsBetter = true;
-		}
-		else if (UBreedFloatGenomesSystem* BreedSys = Cast<UBreedFloatGenomesSystem>(Element.GetInterface()))
-		{
-			BreedSys->Eta = TrainerConfig->BreedingEta;
-		}
-		else if (UMutationFloatGenomeSystem* MutationSys = Cast<UMutationFloatGenomeSystem>(Element.GetInterface()))
-		{
-			MutationSys->PerValueDeltaPercent = TrainerConfig->PerValueDeltaPercent;
-			MutationSys->RandomMutationChance = TrainerConfig->RandomMutationChance;
-		}
-	}
-
-	ExecuteEvent(NewGenerationEvent);
+	ExecuteEvent(EvaluateNetworkEvent);
 }
 
 USplineComponent* AVehicleTrainerContext::GetCircuitSpline() const

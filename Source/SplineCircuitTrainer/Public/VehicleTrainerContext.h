@@ -31,12 +31,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Trainer")
 	USplineComponent* GetCircuitSpline() const;
 
-	/** Triggers the GA evolution step (Selection -> Breeding -> Mutation -> Cleanup) */
+	/** Forces re-initialization of systems from the current TrainerConfig */
 	UFUNCTION(BlueprintCallable, Category = "Trainer")
-	void NextGeneration();
+	void InitializeSystemsFromConfig();
 
 protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void PostInitProperties() override;
+	virtual void PostLoad() override;
 
 private:
 	void OnEvaluateNetworks();

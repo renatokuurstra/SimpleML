@@ -31,27 +31,27 @@ public:
 
 	// Selection parameters are configured per-system asset and treated as constants at runtime.
 	// Unreal does not allow const UPROPERTY; we expose EditDefaultsOnly and never mutate them in code.
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GeneticAlgorithm|Selection|Tournament", meta=(ClampMin="2"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Selection|Tournament", meta=(ClampMin="2"))
 	int32 TournamentSize = 3;
 
 	// If true, entities can be sampled multiple times within a tournament.
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GeneticAlgorithm|Selection|Tournament")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Selection|Tournament")
 	bool bWithReplacement = true;
 
 	// Probability that the best candidate wins the tournament. Higher = stronger pressure.
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GeneticAlgorithm|Selection|Tournament", meta=(ClampMin="0.0", ClampMax="1.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Selection|Tournament", meta=(ClampMin="0.0", ClampMax="1.0"))
 	float SelectionPressure = 0.8f;
 
 	// If true, higher fitness is better.
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GeneticAlgorithm|Selection|Tournament")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Selection|Tournament")
 	bool bHigherIsBetter = true;
 
 	// Per-parent chance to draw from the whole population (ignoring group) when selecting a parent.
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GeneticAlgorithm|Selection|Tournament", meta=(ClampMin="0.0", ClampMax="1.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Selection|Tournament", meta=(ClampMin="0.0", ClampMax="1.0"))
 	float CrossGroupParentChance = 0.1f;
 
 	// Optional seed for deterministic tests (0 means use engine RNG).
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "GeneticAlgorithm|Selection|Tournament")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Selection|Tournament")
 	int32 RandomSeed = 0;
 
 	virtual void Update_Implementation(float DeltaTime) override;

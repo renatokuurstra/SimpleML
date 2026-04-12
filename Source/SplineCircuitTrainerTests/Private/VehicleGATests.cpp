@@ -43,6 +43,8 @@ TEST_CLASS(SplineCircuitTrainer_GA_Tests, "SplineCircuitTrainer.GA")
 		// 2. Spawn Trainer and Initialize
 		AVehicleTrainerContext* Trainer = World->SpawnActor<AVehicleTrainerContext>();
 		Trainer->TrainerConfig = Config;
+		// Re-initialize from config since we just set it
+		Trainer->InitializeSystemsFromConfig();
 		Trainer->DispatchBeginPlay();
 
 		auto& Registry = Trainer->GetRegistry();
@@ -73,25 +75,25 @@ TEST_CLASS(SplineCircuitTrainer_GA_Tests, "SplineCircuitTrainer.GA")
 		}
 
 		// 4. Trigger Evolution
-		// We need to mark entities for reset before calling NextGeneration, 
+		// We need to mark entities for reset before calling NewGeneration event, 
 		// otherwise TournamentSelectionSystem won't pick them for breeding.
 		for (auto E : Population)
 		{
 			Registry.emplace<FResetGenomeComponent>(E);
 		}
 		
-		Trainer->NextGeneration();
+		Trainer->ExecuteEvent(FName("NewGeneration"));
 
 		// 5. Verify Elites
 		// EliteCount = 2, so the 2 best (entities 8 and 9) should be selected as elites.
 		// EliteSelection system creates SEPARATE entities with FEliteTagComponent and FFitnessComponent.
-		int32 EliteCount = 0;
+		int32 EliteEntitiesCount = 0;
 		auto EliteView = Registry.view<FEliteTagComponent>();
 		for (auto E : EliteView)
 		{
-			EliteCount++;
+			EliteEntitiesCount++;
 		}
-		ASSERT_THAT(AreEqual(2, EliteCount, "Should have 2 elite entities after evolution"));
+		ASSERT_THAT(AreEqual(2, EliteEntitiesCount, "Should have 2 elite entities after evolution"));
 
 		// 6. Verify Reset Tags on Population
 		// All non-elite entities should have been processed.
