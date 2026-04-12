@@ -15,6 +15,7 @@ UVehicleResetSystem::UVehicleResetSystem()
 	RegisterComponent<FVehicleComponent>();
 	RegisterComponent<FResetGenomeComponent>();
 	RegisterComponent<FTrainingDataComponent>();
+	RegisterComponent<FFitnessComponent>();
 }
 
 void UVehicleResetSystem::Update_Implementation(float DeltaTime)
@@ -48,6 +49,9 @@ void UVehicleResetSystem::Update_Implementation(float DeltaTime)
 			
 			// Reset training data
 			UVehicleLibrary::SetTrainingData(TrainingData, Spline, ResetLocation, GetContext()->GetWorld()->GetTimeSeconds());
+
+			// Remove fitness component - it will be added back by eligibility system when age is right
+			GetRegistry().remove<FFitnessComponent>(Entity);
 		}
 	}
 }

@@ -11,6 +11,7 @@
 #include "Systems/VehicleProgressSystem.h"
 #include "Systems/VehicleResetFlagSystem.h"
 #include "Systems/VehicleFitnessSystem.h"
+#include "Systems/VehicleFitnessEligibilitySystem.h"
 #include "Systems/EliteSelectionFloatSystem.h"
 #include "Systems/TournamentSelectionSystem.h"
 #include "Systems/BreedFloatGenomesSystem.h"
@@ -55,6 +56,7 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	
 	UVehicleProgressSystem* ProgressSystem = CreateDefaultSubobject<UVehicleProgressSystem>("ProgressSys");
 	UVehicleResetFlagSystem* ResetFlagSystem = CreateDefaultSubobject<UVehicleResetFlagSystem>("ResetFlagSys");
+	UVehicleFitnessEligibilitySystem* FitnessEligibilitySystem = CreateDefaultSubobject<UVehicleFitnessEligibilitySystem>("FitnessEligibilitySys");
 	UVehicleFitnessSystem* FitnessSystem = CreateDefaultSubobject<UVehicleFitnessSystem>("FitnessSys");
 	UEliteSelectionFloatSystem* EliteSys = CreateDefaultSubobject<UEliteSelectionFloatSystem>("EliteSys");
 	UTournamentSelectionSystem* SelectionSys = CreateDefaultSubobject<UTournamentSelectionSystem>("SelectionSys");
@@ -66,6 +68,7 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	
 	NewGenEvent.Elements.Add(ProgressSystem);
 	NewGenEvent.Elements.Add(ResetFlagSystem);
+	NewGenEvent.Elements.Add(FitnessEligibilitySystem);
 	NewGenEvent.Elements.Add(FitnessSystem);
 	NewGenEvent.Elements.Add(EliteSys);
 	NewGenEvent.Elements.Add(SelectionSys);

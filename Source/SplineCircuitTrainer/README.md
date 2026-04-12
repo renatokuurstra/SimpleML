@@ -41,6 +41,9 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
   - `NoProgressTimeout`: Max time allowed without significant progress.
   - `MinimumProgressBetweenEvaluations`: Min progress required to reset the timeout timer.
   - `MinAverageVelocity`: Min speed required during the vehicle's lifespan.
+- `Genetic Algorithm|Fitness Eligibility`:
+  - `MinBreedAge`: Minimum age in seconds before an entity is eligible for fitness scoring and breeding.
+  - `OldestAliveAgeFactor`: Percentage (0.0 - 1.0) of the oldest currently alive entity's age required for fitness eligibility.
 - `Debug`:
   - `bDebugInfo`: Enables debug visualizations (e.g., spheres when vehicles are reset).
 
@@ -54,7 +57,8 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
 The trainer uses the following ECS systems in the `NewGeneration` event:
 - `UVehicleProgressSystem`: Evaluates vehicle distance along the circuit spline.
 - `UVehicleResetFlagSystem`: Flags vehicles for reset if they go off-track or stop making progress.
-- `UVehicleFitnessSystem`: Calculates fitness as the cube of the distance traveled.
+- `UVehicleFitnessEligibilitySystem`: Manages adding `FFitnessComponent` based on age and oldest alive factor.
+- `UVehicleFitnessSystem`: Calculates fitness as the cube of the distance traveled for eligible entities.
 - `UEliteSelectionFloatSystem`: Selects top N entities as elites.
 - `UTournamentSelectionSystem`: Selects parents for the next generation.
 - `UBreedFloatGenomesSystem`: Creates offspring via crossover.

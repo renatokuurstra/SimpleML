@@ -102,6 +102,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Reset Logic")
 	float MinAgeForReset = 2.0f;
 
+	/** Minimum age in seconds before an entity is eligible for fitness scoring and breeding. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Fitness Eligibility")
+	float MinBreedAge = 10.0f;
+
+	/** Percentage (0.0 - 1.0) of the oldest currently alive entity's age required for fitness eligibility. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Fitness Eligibility")
+	float OldestAliveAgeFactor = 0.5f;
+
 	/** Helper to calculate layer descriptors based on current settings */
 	UFUNCTION(BlueprintCallable, Category = "Neural Network")
 	TArray<FNeuralNetworkLayerDescriptor> GetNNLayerDescriptors() const;
