@@ -27,10 +27,28 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
 
 ### UVehicleTrainerConfig
 - `Population`: Number of vehicles.
-- `EliteCount`: Number of top performers to preserve.
-- `TournamentSize`: Selection pool size for breeding.
-- `MutationRate`: Probability of mutation.
-- `PerValueDeltaPercent`: Multiplicative noise for weights.
+- `SpawnParametricDistance`: Distance along the spline where vehicles are spawned (default 200cm).
+- `Genetic Algorithm|Selection`:
+  - `EliteCount`: Number of top performers to preserve.
+  - `TournamentSize`: Selection pool size for breeding.
+  - `SelectionPressure`: Probability of choosing the best in a tournament.
+- `Genetic Algorithm|Breeding`:
+  - `MutationRate`: Probability of mutation.
+  - `PerValueDeltaPercent`: Multiplicative noise for weights.
+  - `BreedingEta`: Controls crossover blend.
+- `Genetic Algorithm|Reset Logic`:
+  - `MaxSplineDistanceThreshold`: Threshold distance from spline before reset.
+  - `NoProgressTimeout`: Max time allowed without significant progress.
+  - `MinimumProgressBetweenEvaluations`: Min progress required to reset the timeout timer.
+  - `MinAverageVelocity`: Min speed required during the vehicle's lifespan.
+- `Debug`:
+  - `bDebugInfo`: Enables debug visualizations (e.g., spheres when vehicles are reset).
+
+### FTrainingDataComponent
+- `DistanceTraveled`: Total distance along the spline.
+- `LastDistanceDelta`: Delta distance since the last update.
+- `TimeSinceLastProgress`: Time elapsed since the last positive progress > `MinimumProgressBetweenEvaluations`.
+- `CreationTime`: World time when the vehicle was spawned.
 
 ## Genetic Algorithm Integration
 The trainer uses the following ECS systems in the `NewGeneration` event:

@@ -60,7 +60,7 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 
 		if (USplineComponent* Spline = TrainerContext->GetCircuitSpline())
 		{
-			UVehicleLibrary::GetVehicleSpawnTransform(Spline, 0.0f, TrainerContext->TrainerConfig->SpawnVerticalOffset, SpawnLocation, SpawnRotation);
+			UVehicleLibrary::GetVehicleSpawnTransform(Spline, TrainerContext->TrainerConfig->SpawnParametricDistance, TrainerContext->TrainerConfig->SpawnVerticalOffset, SpawnLocation, SpawnRotation);
 		}
 		else
 		{
@@ -82,7 +82,10 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 			InRegistry.emplace<FVehicleComponent>(Entity, NewPawn);
 
 			// Add training data component
-			InRegistry.emplace<FTrainingDataComponent>(Entity);
+			FTrainingDataComponent& TrainingData = InRegistry.emplace<FTrainingDataComponent>(Entity);
+			USplineComponent* Spline = TrainerContext->GetCircuitSpline();
+			UVehicleLibrary::SetTrainingData(TrainingData, Spline, SpawnLocation, World->GetTimeSeconds());
+			
 
 			// Add NN Input and Output components
 			FNNInFLoatComp& InComp = InRegistry.emplace<FNNInFLoatComp>(Entity);

@@ -23,6 +23,14 @@ struct FTrainingDataComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
 	float LastSplineDistance = 0.0f;
 
+	/** Last recorded spline segment index. Used for determining movement direction across loop start/end. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
+	int32 LastSplineSegment = 0;
+
+	/** Last distance delta recorded. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
+	float LastDistanceDelta = 0.0f;
+
 	/** Maximum distance traveled in the current session. Used for progress tracking. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
 	float MaxDistanceTraveled = 0.0f;
@@ -30,4 +38,8 @@ struct FTrainingDataComponent
 	/** Time elapsed since the last positive progress along the spline. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
 	float TimeSinceLastProgress = 0.0f;
+
+	/** Unreal engine time since start when the entity was created. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
+	float CreationTime = 0.0f;
 };

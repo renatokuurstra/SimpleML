@@ -4,6 +4,7 @@
 #include "VehicleComponent.h"
 #include "Components/TrainingDataComponent.h"
 #include "VehicleTrainerContext.h"
+#include "VehicleTrainerConfig.h"
 #include "Components/SplineComponent.h"
 #include "GameFramework/Pawn.h"
 
@@ -33,6 +34,12 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 		return;
 	}
 
+	float MinProgress = 0.0f;
+	if (TrainerContext->TrainerConfig)
+	{
+		MinProgress = TrainerContext->TrainerConfig->MinimumProgressBetweenEvaluations;
+	}
+
 	auto View = GetView<FVehicleComponent, FTrainingDataComponent>();
 
 	for (auto Entity : View)
@@ -49,25 +56,49 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 		FVector PawnLocation = Pawn->GetActorLocation();
 
 		float CurrentSplineDistance = Spline->GetDistanceAlongSplineAtLocation(PawnLocation, ESplineCoordinateSpace::World);
-		
+		float CurrentInputKey = Spline->FindInputKeyClosestToWorldLocation(PawnLocation);
+		int32 CurrentSegment = FMath::FloorToInt(CurrentInputKey);
+
 		float Delta = CurrentSplineDistance - TrainingData.LastSplineDistance;
 
 		// Handle looped spline wrapping
 		if (Spline->IsClosedLoop())
 		{
+			// If distance jump is more than half the spline length, assume a wrap
 			if (Delta > SplineLength * 0.5f)
 			{
-				// Pawn moved backward across the start/end point
 				Delta -= SplineLength;
 			}
 			else if (Delta < -SplineLength * 0.5f)
 			{
-				// Pawn moved forward across the start/end point
 				Delta += SplineLength;
 			}
 		}
 
+		// Teleport / bad-read guard
+		// If the delta is still larger than a reasonable threshold (e.g., 20% of spline length in one frame),
+		// treat it as a discontinuity and reset the tracking state.
+		const float TeleportThreshold = SplineLength * 0.2f;
+		if (FMath::Abs(Delta) > TeleportThreshold)
+		{
+			TrainingData.LastSplineDistance = CurrentSplineDistance;
+			TrainingData.LastSplineSegment = CurrentSegment;
+			continue;
+		}
+
 		TrainingData.DistanceTraveled += Delta;
+		TrainingData.LastDistanceDelta = Delta;
+
+		if (Delta > MinProgress)
+		{
+			TrainingData.TimeSinceLastProgress = 0.0f;
+		}
+		else
+		{
+			TrainingData.TimeSinceLastProgress += DeltaTime;
+		}
+
 		TrainingData.LastSplineDistance = CurrentSplineDistance;
+		TrainingData.LastSplineSegment = CurrentSegment;
 	}
 }

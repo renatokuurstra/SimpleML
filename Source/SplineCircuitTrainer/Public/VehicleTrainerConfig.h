@@ -26,6 +26,9 @@ public:
 	float SpawnVerticalOffset = 0.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
+	float SpawnParametricDistance = 200.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	int32 Population = 10;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Structure")
@@ -51,13 +54,13 @@ public:
 
 	// Genetic Algorithm Settings
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Selection")
 	int32 EliteCount = 2;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Selection")
 	int32 TournamentSize = 5;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Selection")
 	float SelectionPressure = 0.85f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
@@ -72,24 +75,32 @@ public:
 	float RandomMutationChance = 0.01f;
 
 	/** Breeding eta parameter (crossover) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Breeding")
 	float BreedingEta = 10.0f;
 
 	/** Percentage of population (worst performers) to reset each generation */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Reset Logic")
 	float BottomResetFraction = 0.2f;
 
 	/** Threshold distance from spline to trigger a reset (e.g. out of bounds) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Reset Logic")
 	float MaxSplineDistanceThreshold = 5000.0f;
 
 	/** Max time in seconds allowed without positive progress along the spline */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Reset Logic")
 	float NoProgressTimeout = 2.0f;
 
 	/** Minimum progress in centimeters required between evaluations to avoid reset */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Reset Logic")
 	float MinimumProgressBetweenEvaluations = 10.0f;
+
+	/** Minimum average velocity (cm/s) to maintain to avoid reset. Only checked after MinAgeForReset. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Reset Logic")
+	float MinAverageVelocity = 100.0f;
+
+	/** Minimum age in seconds before average velocity checks start. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Reset Logic")
+	float MinAgeForReset = 2.0f;
 
 	/** Helper to calculate layer descriptors based on current settings */
 	UFUNCTION(BlueprintCallable, Category = "Neural Network")
@@ -102,4 +113,7 @@ public:
 	/** Total outputs required based on current configuration (including recurrence) */
 	UFUNCTION(BlueprintCallable, Category = "Neural Network")
 	int32 GetTotalOutputCount() const;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
+	bool bDebugInfo = false;
 };

@@ -43,16 +43,11 @@ void UVehicleResetSystem::Update_Implementation(float DeltaTime)
 			FVector ResetLocation;
 			FRotator ResetRotation;
 			
-			UVehicleLibrary::GetVehicleSpawnTransform(Spline, 0.0f, TrainerContext->TrainerConfig->SpawnVerticalOffset, ResetLocation, ResetRotation);
+			UVehicleLibrary::GetVehicleSpawnTransform(Spline, TrainerContext->TrainerConfig->SpawnParametricDistance, TrainerContext->TrainerConfig->SpawnVerticalOffset, ResetLocation, ResetRotation);
 			UVehicleLibrary::ResetPawnPhysicalState(VehicleComp.VehiclePawn, ResetLocation, ResetRotation);
 			
-			VehicleComp.VehiclePawn->SetActorLocationAndRotation(ResetLocation, ResetRotation, false, nullptr, ETeleportType::ResetPhysics);
+			// Reset training data
+			UVehicleLibrary::SetTrainingData(TrainingData, Spline, ResetLocation, GetContext()->GetWorld()->GetTimeSeconds());
 		}
-
-		// Reset training data
-		TrainingData.DistanceTraveled = 0.0f;
-		TrainingData.LastSplineDistance = 0.0f;
-		TrainingData.MaxDistanceTraveled = 0.0f;
-		TrainingData.TimeSinceLastProgress = 0.0f;
 	}
 }

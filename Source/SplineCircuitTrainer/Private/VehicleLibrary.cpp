@@ -2,6 +2,7 @@
 
 #include "VehicleLibrary.h"
 #include "Components/SplineComponent.h"
+#include "Components/TrainingDataComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PawnMovementComponent.h"
 
@@ -35,5 +36,25 @@ void UVehicleLibrary::ResetPawnPhysicalState(APawn* Pawn, const FVector& Locatio
 	{
 		RootPrim->SetPhysicsLinearVelocity(FVector::ZeroVector);
 		RootPrim->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+	}
+}
+
+void UVehicleLibrary::SetTrainingData(FTrainingDataComponent& OutTrainingData, const USplineComponent* Spline, const FVector& Location, float CreationTime)
+{
+	OutTrainingData.DistanceTraveled = 0.0f;
+	OutTrainingData.MaxDistanceTraveled = 0.0f;
+	OutTrainingData.TimeSinceLastProgress = 0.0f;
+	OutTrainingData.CreationTime = CreationTime;
+
+	if (Spline)
+	{
+		OutTrainingData.LastSplineDistance = Spline->GetDistanceAlongSplineAtLocation(Location, ESplineCoordinateSpace::World);
+		float InputKey = Spline->FindInputKeyClosestToWorldLocation(Location);
+		OutTrainingData.LastSplineSegment = FMath::FloorToInt(InputKey);
+	}
+	else
+	{
+		OutTrainingData.LastSplineDistance = 0.0f;
+		OutTrainingData.LastSplineSegment = 0;
 	}
 }

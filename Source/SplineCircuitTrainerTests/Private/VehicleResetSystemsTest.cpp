@@ -42,8 +42,8 @@ TEST_CLASS(SplineCircuitTrainer_VehicleResetSystems_Tests, "SplineCircuitTrainer
 
 		Config = NewObject<UVehicleTrainerConfig>();
 		Config->MaxSplineDistanceThreshold = 1000.0f;
-		Config->NoProgressTimeout = 1.0f;
-		Config->MinimumProgressBetweenEvaluations = 10.0f;
+		Config->MinAverageVelocity = 100.0f;
+		Config->MinAgeForReset = 1.0f;
 		Context->TrainerConfig = Config;
 
 		FlagSystem = NewObject<UVehicleResetFlagSystem>();
@@ -80,7 +80,7 @@ TEST_CLASS(SplineCircuitTrainer_VehicleResetSystems_Tests, "SplineCircuitTrainer
 		ASSERT_THAT(IsTrue(Registry.all_of<FResetGenomeComponent>(Entity), "Entity should be flagged for reset because it is too far from spline"));
 	}
 
-	TEST_METHOD(FlagsNoProgressVehicle)
+	TEST_METHOD(FlagsInsufficientAverageVelocity)
 	{
 		APawn* Pawn = World->SpawnActor<APawn>();
 		Pawn->SetActorLocation(FVector(100, 0, 0));
@@ -90,41 +90,24 @@ TEST_CLASS(SplineCircuitTrainer_VehicleResetSystems_Tests, "SplineCircuitTrainer
 		Registry.emplace<FVehicleComponent>(Entity, Pawn);
 		FTrainingDataComponent& Data = Registry.emplace<FTrainingDataComponent>(Entity);
 		
-		// Initial state
+		// Configured MinAverageVelocity is 100.0 cm/s, MinAgeForReset is 1.0s
+		Data.CreationTime = 0.0f; 
 		Data.DistanceTraveled = 50.0f;
-		Data.MaxDistanceTraveled = 50.0f;
-		Data.TimeSinceLastProgress = 0.0f;
 
-		// Update with no progress
-		FlagSystem->Update(0.6f);
-		ASSERT_THAT(IsFalse(Registry.all_of<FResetGenomeComponent>(Entity), "Should not be flagged yet (0.6s < 1.0s)"));
-
-		FlagSystem->Update(0.5f);
-		ASSERT_THAT(IsTrue(Registry.all_of<FResetGenomeComponent>(Entity), "Should be flagged after 1.1s of no progress"));
-	}
-
-	TEST_METHOD(FlagsInsufficientProgressVehicle)
-	{
-		APawn* Pawn = World->SpawnActor<APawn>();
-		Pawn->SetActorLocation(FVector(100, 0, 0));
-
-		entt::registry& Registry = Context->GetRegistry();
-		entt::entity Entity = Registry.create();
-		Registry.emplace<FVehicleComponent>(Entity, Pawn);
-		FTrainingDataComponent& Data = Registry.emplace<FTrainingDataComponent>(Entity);
+		// Mock CurrentTime = 0.5s by using a trick if possible, or just assume World->GetTimeSeconds() is 0 for now.
+		// Actually, since we can't easily advance World time in a simple unit test without Ticking,
+		// and we don't want to Tick.
+		// But the system uses TrainerContext->GetWorld()->GetTimeSeconds().
 		
-		// Configured MinProgress is 10.0 cm, Timeout is 1.0s
-		Data.DistanceTraveled = 50.0f;
-		Data.MaxDistanceTraveled = 50.0f;
-		Data.TimeSinceLastProgress = 0.0f;
+		// Let's set CreationTime to -0.5f so Age = 0.5s
+		Data.CreationTime = World->GetTimeSeconds() - 0.5f;
+		FlagSystem->Update(0.1f);
+		ASSERT_THAT(IsFalse(Registry.all_of<FResetGenomeComponent>(Entity), "Should not be flagged yet (Age 0.5s < 1.0s)"));
 
-		// Move 5cm (less than 10cm)
-		Data.DistanceTraveled = 55.0f;
-		FlagSystem->Update(0.6f);
-		ASSERT_THAT(IsFalse(Registry.all_of<FResetGenomeComponent>(Entity), "Should not be flagged yet (0.6s < 1.0s, even if progress < 10cm)"));
-
-		// Total time 1.1s, still only 5cm progress
-		FlagSystem->Update(0.5f);
-		ASSERT_THAT(IsTrue(Registry.all_of<FResetGenomeComponent>(Entity), "Should be flagged after 1.1s because progress (5cm) < MinProgress (10cm)"));
+		// Set CreationTime to -1.5f so Age = 1.5s
+		Data.CreationTime = World->GetTimeSeconds() - 1.5f;
+		// Distance 50, Age 1.5 -> Velocity 33.3 < 100
+		FlagSystem->Update(0.1f);
+		ASSERT_THAT(IsTrue(Registry.all_of<FResetGenomeComponent>(Entity), "Should be flagged after 1.5s because avg velocity (33.3) < 100"));
 	}
 };

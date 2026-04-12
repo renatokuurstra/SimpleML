@@ -8,6 +8,7 @@
 #include "VehicleTrainerConfig.h"
 #include "Components/SplineComponent.h"
 #include "GameFramework/Pawn.h"
+#include "DrawDebugHelpers.h"
 
 UVehicleResetFlagSystem::UVehicleResetFlagSystem()
 {
@@ -30,8 +31,10 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 	}
 
 	float MaxDistThreshold = TrainerContext->TrainerConfig->MaxSplineDistanceThreshold;
+	float MinAverageVelocity = TrainerContext->TrainerConfig->MinAverageVelocity;
+	float MinAgeForReset = TrainerContext->TrainerConfig->MinAgeForReset;
 	float NoProgressTimeout = TrainerContext->TrainerConfig->NoProgressTimeout;
-	float MinProgress = TrainerContext->TrainerConfig->MinimumProgressBetweenEvaluations;
+	float CurrentTime = TrainerContext->GetWorld()->GetTimeSeconds();
 
 	auto View = GetView<FVehicleComponent, FTrainingDataComponent>();
 	entt::registry& Registry = GetRegistry();
@@ -41,6 +44,7 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 		// Skip if already flagged for reset
 		if (Registry.all_of<FResetGenomeComponent>(Entity))
 		{
+			UE_LOG(LogTemp, Warning, TEXT("Skipping entity %d because it is already flagged for reset"), Entity);
 			continue;
 		}
 
@@ -61,23 +65,37 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 		if (DistanceFromSpline > MaxDistThreshold)
 		{
 			Registry.emplace<FResetGenomeComponent>(Entity);
+			if (TrainerContext->TrainerConfig->bDebugInfo)
+			{
+				DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, FColor::Red, false, 3.0f, 0);
+			}
 			continue;
 		}
 
-		// 2. Check for positive progress
-		if (TrainingData.DistanceTraveled > TrainingData.MaxDistanceTraveled + MinProgress)
+		// 2. Check for average progress during lifespan
+		float Age = CurrentTime - TrainingData.CreationTime;
+		if (Age >= MinAgeForReset)
 		{
-			TrainingData.MaxDistanceTraveled = TrainingData.DistanceTraveled;
-			TrainingData.TimeSinceLastProgress = 0.0f;
-		}
-		else
-		{
-			TrainingData.TimeSinceLastProgress += DeltaTime;
+			float AverageVelocity = TrainingData.DistanceTraveled / Age;
+			if (AverageVelocity < MinAverageVelocity)
+			{
+				Registry.emplace<FResetGenomeComponent>(Entity);
+				if (TrainerContext->TrainerConfig->bDebugInfo)
+				{
+					DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, FColor::Blue, false, 3.0f, 0);
+				}
+				continue;
+			}
 		}
 
-		if (TrainingData.TimeSinceLastProgress >= NoProgressTimeout)
+		// 3. Check for progress timeout
+		if (TrainingData.TimeSinceLastProgress > NoProgressTimeout)
 		{
 			Registry.emplace<FResetGenomeComponent>(Entity);
+			if (TrainerContext->TrainerConfig->bDebugInfo)
+			{
+				DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, FColor::Yellow, false, 3.0f, 0);
+			}
 		}
 	}
 }

@@ -29,4 +29,9 @@ public:
 	 * Resets a pawn to a specific location and rotation, clearing physical states.
 	 */
 	static void ResetPawnPhysicalState(APawn* Pawn, const FVector& Location, const FRotator& Rotation);
+
+	/**
+	 * Initializes or resets training data for a vehicle based on its current position relative to the spline.
+	 */
+	static void SetTrainingData(struct FTrainingDataComponent& OutTrainingData, const USplineComponent* Spline, const FVector& Location, float CreationTime);
 };
