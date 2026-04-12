@@ -24,6 +24,12 @@ void UVehicleFitnessSystem::Update_Implementation(float DeltaTime)
 			float Distance = TrainingData.DistanceTraveled;
 			// Add the cube of DistanceTraveled to the fitness.
 			FitComp.Fitness[0] += (Distance * Distance * Distance);
+
+			// Mark for reset if fitness is negative.
+			if (FitComp.Fitness[0] < 0.0f)
+			{
+				GetRegistry().emplace_or_replace<FResetGenomeComponent>(Entity);
+			}
 		}
 	}
 }

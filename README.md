@@ -55,6 +55,7 @@ SimpleML currently provides the following modules:
 - Example systems (GeneticAlgorithm):
   - Breeding: `UBreedFloatGenomesSystem`, `UBreedCharGenomesSystem`
   - Selection: `UEliteSelectionFloatSystem`
+    - Maintains a persistent pool of elite entities per fitness index. Elites are only replaced if a new candidate achieves better fitness, ensuring that the best solutions are never lost during the simulation.
   - Mutation: `UMutationFloatGenomeSystem` (per-value ±X% noise, optional random resets)
 
 ## Public API (overview)

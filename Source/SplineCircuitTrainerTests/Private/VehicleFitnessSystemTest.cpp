@@ -81,4 +81,21 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 		// E2: 10 + 4^3 = 10 + 64 = 74
 		ASSERT_THAT(IsNear(74.0f, Registry.get<FFitnessComponent>(E2).Fitness[0], 0.01f, "E2 fitness should be 74"));
 	}
+
+	TEST_METHOD(MarksNegativeFitnessForReset)
+	{
+		entt::registry& Registry = Context->GetRegistry();
+		entt::entity Entity = Registry.create();
+		
+		Registry.emplace<FTrainingDataComponent>(Entity).DistanceTraveled = 0.0f;
+		FFitnessComponent& FitComp = Registry.emplace<FFitnessComponent>(Entity);
+		FitComp.Fitness.SetNum(1);
+		FitComp.Fitness[0] = -10.0f; // Start with negative fitness
+
+		// Run system update
+		System->Update(0.1f);
+
+		// Verify FResetGenomeComponent is added
+		ASSERT_THAT(IsTrue(Registry.all_of<FResetGenomeComponent>(Entity), "Entity with negative fitness should be marked for reset with FResetGenomeComponent"));
+	}
 };

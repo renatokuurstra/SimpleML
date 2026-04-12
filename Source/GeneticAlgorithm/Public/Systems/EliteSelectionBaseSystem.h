@@ -26,11 +26,7 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 		GENERATED_BODY()
 		
 	public:
-		UEliteSelectionBaseSystem()
-		{
-			RegisterComponent<FFitnessComponent>();
-			RegisterComponent<FEliteTagComponent>();
-		}
+		UEliteSelectionBaseSystem();
 
 		// Number of elites per fitness index to maintain. Treated as runtime parameter.
 		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Selection|Elite", meta=(ClampMin="1"))
@@ -41,11 +37,7 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 		bool bHigherIsBetter = true;
 		
 		// Drive selection each tick from the base; children only implement hooks.
-		virtual void Update_Implementation(float DeltaTime) override
-		{
-			// UEcsSystem::Update is empty; directly invoke selection to avoid duplication in children.
-			ApplySelection();
-		}
+		virtual void Update_Implementation(float DeltaTime) override;
 		
 		protected:
 		// Hooks for type-specific behavior (implemented by derived systems)
@@ -102,6 +94,17 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 					OutEntities.Add(E);
 				}
 			}
+
+			// Sort existing elites so that when we compare them against candidates, 
+			// we can reliably replace the worst ones if needed.
+			OutEntities.Sort([this, &Registry, FitnessIndex](entt::entity A, entt::entity B)
+			{
+				const float VA = Registry.get<FFitnessComponent>(A).Fitness[FitnessIndex];
+				const float VB = Registry.get<FFitnessComponent>(B).Fitness[FitnessIndex];
+				if (bHigherIsBetter) { return VA > VB; }
+				return VA < VB;
+			});
+
 			// Create missing elites
 			while (OutEntities.Num() < DesiredCount)
 			{
@@ -110,6 +113,8 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 				FFitnessComponent NewFit{};
 				NewFit.BuiltForFitnessIndex = FitnessIndex;
 				NewFit.Fitness.SetNum(FitnessIndex + 1, EAllowShrinking::No);
+				// Initialize with neutral fitness
+				NewFit.Fitness[FitnessIndex] = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
 				Registry.emplace<FFitnessComponent>(NewE, MoveTemp(NewFit));
 				OutEntities.Add(NewE);
 			}
@@ -154,12 +159,18 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 				++CurrentOrder;
 			}
 		
-			// For each fitness index, pick top-N and copy into elite-owned storage
+			// For each fitness index, maintain and update elites
 			for (int32 FitnessIndex = 0; FitnessIndex < SelectionBuckets.Num(); ++FitnessIndex)
 			{
 				TArray<FEntityFitness>& Bucket = SelectionBuckets[FitnessIndex];
+				
+				// Ensure we have the desired number of elite entities for this index
+				TArray<entt::entity> ElitePool;
+				GatherElitePool(FitnessIndex, EliteCount, ElitePool);
+				
 				if (Bucket.Num() == 0) { continue; }
-				const int32 N = FMath::Clamp(EliteCount, 1, Bucket.Num());
+
+				// Sort candidates
 				IndexScratch.Reset(Bucket.Num());
 				for (int32 i = 0; i < Bucket.Num(); ++i) { IndexScratch.Add(i); }
 				IndexScratch.Sort([this, &Bucket](int32 A, int32 B)
@@ -176,27 +187,68 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 					}
 					return Bucket[A].Order < Bucket[B].Order;
 				});
-				if (IndexScratch.Num() > N) { IndexScratch.SetNum(N, EAllowShrinking::No); }
+
+				// We compare current elites against new candidates.
+				// Since ElitePool is sorted, and Bucket[IndexScratch] is sorted,
+				// we can merge them or just see if the best candidates beat the worst elites.
 				
-				// Ensure/reuse elite entities for this index
-				TArray<entt::entity> ElitePool;
-				GatherElitePool(FitnessIndex, N, ElitePool);
-				// Copy top winners into elite pool
-				for (int32 r = 0; r < N; ++r)
+				for (int32 i = 0; i < IndexScratch.Num(); ++i)
 				{
-					const FEntityFitness& Winner = Bucket[IndexScratch[r]];
-					const entt::entity EliteE = ElitePool[r];
-					// Ensure elite has correct fitness component sizing and value
-					FFitnessComponent& EliteFit = Registry.get<FFitnessComponent>(EliteE);
-					if (EliteFit.Fitness.Num() < FitnessIndex + 1)
-					{
-						EliteFit.Fitness.SetNum(FitnessIndex + 1, EAllowShrinking::No);
-					}
-					EliteFit.Fitness[FitnessIndex] = Winner.Value;
-					EliteFit.BuiltForFitnessIndex = FitnessIndex;
+					const FEntityFitness& Candidate = Bucket[IndexScratch[i]];
 					
-					// Delegate type-specific genome copy/bind
-					CopyGenomeToElite(Winner.Entity, EliteE, FitnessIndex);
+					// Find the worst elite to potentially replace
+					int32 WorstEliteIdx = -1;
+					float WorstFitness = bHigherIsBetter ? MAX_FLT : -MAX_FLT;
+
+					for(int32 e = 0; e < ElitePool.Num(); ++e)
+					{
+						const float EliteFitVal = Registry.get<FFitnessComponent>(ElitePool[e]).Fitness[FitnessIndex];
+						if (bHigherIsBetter)
+						{
+							if (EliteFitVal < WorstFitness)
+							{
+								WorstFitness = EliteFitVal;
+								WorstEliteIdx = e;
+							}
+						}
+						else
+						{
+							if (EliteFitVal > WorstFitness)
+							{
+								WorstFitness = EliteFitVal;
+								WorstEliteIdx = e;
+							}
+						}
+					}
+
+					if (WorstEliteIdx != -1)
+					{
+						bool bIsBetter = bHigherIsBetter ? (Candidate.Value > WorstFitness) : (Candidate.Value < WorstFitness);
+						if (bIsBetter)
+						{
+							const entt::entity EliteE = ElitePool[WorstEliteIdx];
+							FFitnessComponent& EliteFit = Registry.get<FFitnessComponent>(EliteE);
+							
+							// Overwrite worst elite with new candidate
+							if (EliteFit.Fitness.Num() < FitnessIndex + 1)
+							{
+								EliteFit.Fitness.SetNum(FitnessIndex + 1, EAllowShrinking::No);
+							}
+							EliteFit.Fitness[FitnessIndex] = Candidate.Value;
+							EliteFit.BuiltForFitnessIndex = FitnessIndex;
+							
+							CopyGenomeToElite(Candidate.Entity, EliteE, FitnessIndex);
+						}
+						else
+						{
+							// Since candidates are sorted, if this one isn't better than the worst elite, 
+							// subsequent ones won't be either (at least not in a way that matters for top-N).
+							// Wait, that's not entirely true if we have multiple elites to replace.
+							// Actually, if Candidate[i] is NOT better than the worst elite, then Candidate[i+1] (which is worse than Candidate[i])
+							// certainly won't be better than the worst elite.
+							break;
+						}
+					}
 				}
 			}
 		}

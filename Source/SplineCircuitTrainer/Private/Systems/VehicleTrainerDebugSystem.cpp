@@ -19,7 +19,7 @@ void UVehicleTrainerDebugSystem::Initialize_Implementation(AEcsContext* InContex
 	
 	if (UWorld* World = GetContext()->GetWorld())
 	{
-		World->GetTimerManager().SetTimer(DebugTimerHandle, this, &UVehicleTrainerDebugSystem::DrawDebugUI, 0.016f, true);
+		World->GetTimerManager().SetTimer(DebugTimerHandle, this, &UVehicleTrainerDebugSystem::DrawDebugUI, 0.001f, true);
 	}
 }
 
@@ -59,7 +59,7 @@ void UVehicleTrainerDebugSystem::Update_Implementation(float DeltaTime)
 	{
 		if (UWorld* World = GetContext()->GetWorld())
 		{
-			World->GetTimerManager().SetTimer(DebugTimerHandle, this, &UVehicleTrainerDebugSystem::DrawDebugUI, 0.016f, true);
+			World->GetTimerManager().SetTimer(DebugTimerHandle, this, &UVehicleTrainerDebugSystem::DrawDebugUI, 0.001f, true);
 		}
 	}
 }
@@ -96,48 +96,104 @@ void UVehicleTrainerDebugSystem::DrawDebugUI()
 
 		// 2. Elites
 		SlateIM::Text(FString::Printf(TEXT("Elites: %d"), CachedEliteCount));
-		SlateIM::BeginTable();
+		
+		SlateIM::FixedTableColumnWidth(60.0f);
 		SlateIM::AddTableColumn(TEXT("Index"));
+		SlateIM::InitialTableColumnWidth(100.0f);
 		SlateIM::AddTableColumn(TEXT("Fitness"));
-		for (int32 i = 0; i < CachedEliteFitness.Num(); ++i)
+		
+		SlateIM::MaxHeight(150.0f);
+		SlateIM::BeginTable();
 		{
-			if (SlateIM::NextTableCell()) SlateIM::Text(FString::FromInt(i));
-			if (SlateIM::NextTableCell()) SlateIM::Text(FString::SanitizeFloat(CachedEliteFitness[i]));
+			// We always show at least the number of elites configured in the trainer, even if not yet populated
+			AVehicleTrainerContext* TrainerContext = GetTypedContext<AVehicleTrainerContext>();
+			int32 ConfiguredElites = (TrainerContext && TrainerContext->TrainerConfig) ? TrainerContext->TrainerConfig->EliteCount : 1;
+			int32 RowsToShow = FMath::Max(CachedEliteFitness.Num(), ConfiguredElites);
+
+			for (int32 i = 0; i < RowsToShow; ++i)
+			{
+				if (SlateIM::NextTableCell())
+				{
+					if (i < CachedEliteFitness.Num()) SlateIM::Text(FString::FromInt(i));
+					else SlateIM::Text(TEXT("-"));
+				}
+				if (SlateIM::NextTableCell())
+				{
+					if (i < CachedEliteFitness.Num()) SlateIM::Text(FString::SanitizeFloat(CachedEliteFitness[i]));
+					else SlateIM::Text(TEXT("-"));
+				}
+			}
 		}
 		SlateIM::EndTable();
 		SlateIM::Spacer(FVector2D(0, 10));
 
 		// 3. Breeding Pairs
 		SlateIM::Text(TEXT("Breeding (First 4 Pairs):"));
-		SlateIM::BeginTable();
+		
+		SlateIM::FixedTableColumnWidth(40.0f);
 		SlateIM::AddTableColumn(TEXT("Pair"));
+		SlateIM::InitialTableColumnWidth(100.0f);
 		SlateIM::AddTableColumn(TEXT("Parent A"));
+		SlateIM::InitialTableColumnWidth(100.0f);
 		SlateIM::AddTableColumn(TEXT("Parent B"));
-		for (int32 i = 0; i < CachedBreedingPairsFitness.Num() / 2; ++i)
+		
+		SlateIM::BeginTable();
 		{
-			if (SlateIM::NextTableCell()) SlateIM::Text(FString::FromInt(i));
-			if (SlateIM::NextTableCell()) SlateIM::Text(FString::SanitizeFloat(CachedBreedingPairsFitness[i * 2]));
-			if (SlateIM::NextTableCell()) SlateIM::Text(FString::SanitizeFloat(CachedBreedingPairsFitness[i * 2 + 1]));
+			int32 PairCount = CachedBreedingPairsFitness.Num() / 2;
+			int32 RowsToShow = FMath::Max(PairCount, 1);
+			for (int32 i = 0; i < RowsToShow; ++i)
+			{
+				if (SlateIM::NextTableCell())
+				{
+					if (i < PairCount) SlateIM::Text(FString::FromInt(i));
+					else SlateIM::Text(TEXT("-"));
+				}
+				if (SlateIM::NextTableCell())
+				{
+					if (i < PairCount) SlateIM::Text(FString::SanitizeFloat(CachedBreedingPairsFitness[i * 2]));
+					else SlateIM::Text(TEXT("-"));
+				}
+				if (SlateIM::NextTableCell())
+				{
+					if (i < PairCount) SlateIM::Text(FString::SanitizeFloat(CachedBreedingPairsFitness[i * 2 + 1]));
+					else SlateIM::Text(TEXT("-"));
+				}
+			}
 		}
 		SlateIM::EndTable();
 		SlateIM::Spacer(FVector2D(0, 10));
 
 		// 4. All Solutions Fitness
 		SlateIM::Text(TEXT("All Solutions:"));
-		int32 Total = CachedAllSolutionsFitness.Num();
-		if (Total > 0)
+		
+		SlateIM::FixedTableColumnWidth(60.0f);
+		SlateIM::AddTableColumn(TEXT("Rank"));
+		SlateIM::InitialTableColumnWidth(100.0f);
+		SlateIM::AddTableColumn(TEXT("Fitness"));
+		
+		SlateIM::MaxHeight(200.0f);
+		SlateIM::BeginTable();
 		{
-			SlateIM::BeginTable();
-			SlateIM::AddTableColumn(TEXT("Rank"));
-			SlateIM::AddTableColumn(TEXT("Fitness"));
-
-			for (int32 i = 0; i < Total; ++i)
+			int32 Total = CachedAllSolutionsFitness.Num();
+			// Since everything is scrollable, we can show a larger number or fixed placeholder
+			AVehicleTrainerContext* TrainerContext = GetTypedContext<AVehicleTrainerContext>();
+			int32 PopulationSize = (TrainerContext && TrainerContext->TrainerConfig) ? TrainerContext->TrainerConfig->Population : 10;
+			int32 RowsToShow = FMath::Max(Total, PopulationSize); 
+			for (int32 i = 0; i < RowsToShow; ++i)
 			{
-				if (SlateIM::NextTableCell()) SlateIM::Text(FString::FromInt(i));
-				if (SlateIM::NextTableCell()) SlateIM::Text(FString::SanitizeFloat(CachedAllSolutionsFitness[i]));
+				if (SlateIM::NextTableCell())
+				{
+					if (i < Total) SlateIM::Text(FString::FromInt(i));
+					else SlateIM::Text(TEXT("-"));
+				}
+				if (SlateIM::NextTableCell())
+				{
+					if (i < Total) SlateIM::Text(FString::SanitizeFloat(CachedAllSolutionsFitness[i]));
+					else SlateIM::Text(TEXT("-"));
+				}
 			}
-			SlateIM::EndTable();
 		}
+		SlateIM::EndTable();
 	}
 	SlateIM::EndScrollBox();
 
