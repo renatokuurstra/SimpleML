@@ -27,6 +27,7 @@ public:
 		RegisterComponent<FFitnessComponent>();
 		RegisterComponent<FResetGenomeComponent>();
 		RegisterComponent<FBreedingPairComponent>();
+		RegisterComponent<FEligibleForBreedingTagComponent>();
 	}
 
 	// Selection parameters are configured per-system asset and treated as constants at runtime.

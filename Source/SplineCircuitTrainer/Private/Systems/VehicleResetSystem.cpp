@@ -16,6 +16,7 @@ UVehicleResetSystem::UVehicleResetSystem()
 	RegisterComponent<FResetGenomeComponent>();
 	RegisterComponent<FTrainingDataComponent>();
 	RegisterComponent<FFitnessComponent>();
+	RegisterComponent<FEligibleForBreedingTagComponent>();
 }
 
 void UVehicleResetSystem::Update_Implementation(float DeltaTime)
@@ -50,8 +51,17 @@ void UVehicleResetSystem::Update_Implementation(float DeltaTime)
 			// Reset training data
 			UVehicleLibrary::SetTrainingData(TrainingData, Spline, ResetLocation, GetContext()->GetWorld()->GetTimeSeconds());
 
-			// Remove fitness component - it will be added back by eligibility system when age is right
-			GetRegistry().remove<FFitnessComponent>(Entity);
+			// Reset fitness score
+			if (FFitnessComponent* FitComp = GetRegistry().try_get<FFitnessComponent>(Entity))
+			{
+				for (float& F : FitComp->Fitness)
+				{
+					F = 0.0f;
+				}
+			}
+
+			// Remove eligibility tag
+			GetRegistry().remove<FEligibleForBreedingTagComponent>(Entity);
 		}
 	}
 }

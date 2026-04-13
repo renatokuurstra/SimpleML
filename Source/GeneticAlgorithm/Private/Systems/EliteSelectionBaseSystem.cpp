@@ -6,6 +6,7 @@ UEliteSelectionBaseSystem::UEliteSelectionBaseSystem()
 {
 	RegisterComponent<FFitnessComponent>();
 	RegisterComponent<FEliteTagComponent>();
+	RegisterComponent<FEligibleForBreedingTagComponent>();
 }
 
 void UEliteSelectionBaseSystem::Update_Implementation(float DeltaTime)

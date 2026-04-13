@@ -65,6 +65,17 @@ struct GENETICALGORITHM_API FResetGenomeComponent
 };
 
 /**
+ * Tag component: marks entities that are eligible for breeding/selection.
+ * Fitness scores are tracked for all solutions, but only eligible solutions
+ * (and elites) are sampled during selection.
+ */
+USTRUCT(BlueprintType)
+struct GENETICALGORITHM_API FEligibleForBreedingTagComponent
+{
+	GENERATED_BODY()
+};
+
+/**
  * Debug information component for GeneticAlgorithm module.
  * Stores summarized data for visualization.
  */

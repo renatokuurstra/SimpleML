@@ -21,6 +21,7 @@ public:
 	{
 		RegisterComponent<FBreedingPairComponent>();
 		RegisterComponent<FResetGenomeComponent>();
+		RegisterComponent<FEligibleForBreedingTagComponent>();
 	}
 
 	virtual void Update_Implementation(float DeltaTime) override;

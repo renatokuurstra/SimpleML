@@ -39,9 +39,9 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 		// Drive selection each tick from the base; children only implement hooks.
 		virtual void Update_Implementation(float DeltaTime) override;
 		
-		protected:
+ 	protected:
 		// Hooks for type-specific behavior (implemented by derived systems)
-		virtual bool IsCandidate(entt::entity E, const FFitnessComponent& Fit) const { return false; }
+		virtual bool IsCandidate(entt::entity E, const FFitnessComponent& Fit) const { return true; }
 		virtual void CopyGenomeToElite(entt::entity Winner, entt::entity Elite, int32 FitnessIndex) {}
 
 		// Internal pair used to track entity and its order for stable sorting.
@@ -135,7 +135,8 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 		{
 			auto& Registry = GetRegistry();
 			// Source: all non-elite entities that have fitness; derived systems decide if an entity is a valid candidate via IsCandidate
-			auto SourceView = Registry.view<FFitnessComponent>(entt::exclude_t<FEliteTagComponent>{});
+			// We only consider entities that are eligible for breeding.
+			auto SourceView = Registry.view<FFitnessComponent, FEligibleForBreedingTagComponent>(entt::exclude_t<FEliteTagComponent>{});
 		
 			SelectionBuckets.Reset();
 			IndexScratch.Reset();

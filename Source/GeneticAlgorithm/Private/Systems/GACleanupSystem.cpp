@@ -16,12 +16,19 @@ void UGACleanupSystem::Update_Implementation(float /*DeltaTime*/)
     }
 
     // 2) Remove FResetGenomeComponent from all entities so user can re-apply next generation
+    // Also remove FEligibleForBreedingTagComponent so it must be re-evaluated each generation if needed
     {
         auto ResetView = GetView<FResetGenomeComponent>();
         for (auto Entity : ResetView)
         {
             // Safe to remove tag; entity continues to exist
             Registry.remove<FResetGenomeComponent>(Entity);
+        }
+
+        auto EligibleView = GetView<FEligibleForBreedingTagComponent>();
+        for (auto Entity : EligibleView)
+        {
+            Registry.remove<FEligibleForBreedingTagComponent>(Entity);
         }
     }
 }

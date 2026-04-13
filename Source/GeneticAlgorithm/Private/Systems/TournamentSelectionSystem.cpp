@@ -1,7 +1,8 @@
-﻿﻿//Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
+﻿//Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
 
 #include "Systems/TournamentSelectionSystem.h"
 #include "Components/GenomeComponents.h"
+#include "Components/EliteComponents.h"
 #include "Components/BreedingPairComponent.h"
 #include "Math/UnrealMathUtility.h"
 
@@ -92,10 +93,17 @@ void UTournamentSelectionSystem::Update_Implementation(float /*DeltaTime*/)
 	GlobalBucket.Reset();
 	int32 Order = 0;
 	{
-		// Build a view that excludes entities with FResetGenomeComponent, as they cannot be selected for breeding
+		// Build a view that excludes entities with FResetGenomeComponent, as they cannot be selected for breeding.
+		// We only select from entities that have either FEligibleForBreedingTagComponent OR FEliteTagComponent.
 		auto PopView = Registry.view<FFitnessComponent>(entt::exclude_t<FResetGenomeComponent>{});
 		for (auto Entity : PopView)
 		{
+			// Check eligibility: must have FEligibleForBreedingTagComponent OR FEliteTagComponent
+			if (!Registry.any_of<FEligibleForBreedingTagComponent, FEliteTagComponent>(Entity))
+			{
+				continue;
+			}
+
 			const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(Entity);
 			const int32 Dims = Fit.Fitness.Num();
 			if (Dims <= 0) { ++Order; continue; }

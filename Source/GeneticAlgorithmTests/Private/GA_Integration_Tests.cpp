@@ -167,6 +167,7 @@ TEST_CLASS(GeneticAlgorithm_Integration_Tests, "GeneticAlgorithm.Integration")
 				Fit.BuiltForFitnessIndex = 0;
 				Registry.emplace<FGenomeCharViewComponent>(E, ViewComp);
 				Registry.emplace<FFitnessComponent>(E, Fit);
+				Registry.emplace<FEligibleForBreedingTagComponent>(E);
 				GATestHelper::InitializeRandomGenome(Genomes[i], Registry.get<FGenomeCharViewComponent>(E), GenomeLen, Rng);
 			}
 		}
@@ -203,6 +204,14 @@ TEST_CLASS(GeneticAlgorithm_Integration_Tests, "GeneticAlgorithm.Integration")
 				{
 					const entt::entity E = Ranked[i].E;
 					if (!Registry.all_of<FResetGenomeComponent>(E)) { Registry.emplace<FResetGenomeComponent>(E); }
+				}
+				// 1c) Mark ONLY the survivors as eligible for next generation
+				{
+					auto Survivors = Registry.view<FFitnessComponent>(entt::exclude_t<FResetGenomeComponent, FEliteTagComponent>{});
+					for (auto E : Survivors)
+					{
+						Registry.emplace<FEligibleForBreedingTagComponent>(E);
+					}
 				}
 			}
 
@@ -325,6 +334,7 @@ TEST_CLASS(GeneticAlgorithm_Integration_Tests, "GeneticAlgorithm.Integration")
 				Fit.BuiltForFitnessIndex = 0;
 				Registry.emplace<FGenomeFloatViewComponent>(E, ViewComp);
 				Registry.emplace<FFitnessComponent>(E, Fit);
+				Registry.emplace<FEligibleForBreedingTagComponent>(E);
 				TArray<float>& Storage = Genomes[i];
 				Storage.SetNum(GenomeLen, EAllowShrinking::No);
 				for (int32 g = 0; g < GenomeLen; ++g)
@@ -513,6 +523,7 @@ TEST_CLASS(GeneticAlgorithm_Integration_Tests, "GeneticAlgorithm.Integration")
 				Fit.BuiltForFitnessIndex = 0;
 				Registry.emplace<FGenomeFloatViewComponent>(E, ViewComp);
 				Registry.emplace<FFitnessComponent>(E, Fit);
+				Registry.emplace<FEligibleForBreedingTagComponent>(E);
 				
 				// SimpleML NN + IO
 				FNeuralNetworkFloat Net{};
@@ -641,6 +652,14 @@ TEST_CLASS(GeneticAlgorithm_Integration_Tests, "GeneticAlgorithm.Integration")
 				{
 					const entt::entity E = Ranked[i].E;
 					if (!Registry.all_of<FResetGenomeComponent>(E)) { Registry.emplace<FResetGenomeComponent>(E); }
+				}
+				// 1c) Mark ONLY the survivors as eligible for next generation
+				{
+					auto Survivors = Registry.view<FFitnessComponent>(entt::exclude_t<FResetGenomeComponent, FEliteTagComponent>{});
+					for (auto E : Survivors)
+					{
+						Registry.emplace<FEligibleForBreedingTagComponent>(E);
+					}
 				}
 			}
 			

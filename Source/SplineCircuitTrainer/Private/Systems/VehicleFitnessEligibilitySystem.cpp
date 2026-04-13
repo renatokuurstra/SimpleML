@@ -12,6 +12,7 @@ UVehicleFitnessEligibilitySystem::UVehicleFitnessEligibilitySystem()
 {
 	RegisterComponent<FTrainingDataComponent>();
 	RegisterComponent<FFitnessComponent>();
+	RegisterComponent<FEligibleForBreedingTagComponent>();
 }
 
 void UVehicleFitnessEligibilitySystem::Update_Implementation(float DeltaTime)
@@ -39,7 +40,7 @@ void UVehicleFitnessEligibilitySystem::Update_Implementation(float DeltaTime)
 		}
 	}
 
-	// 2. Identify entities eligible for FFitnessComponent
+	// 2. Identify entities eligible for breeding
 	// Criteria:
 	// - Entity is flagged for reset (FResetGenomeComponent)
 	// - MinBreedAge met
@@ -49,9 +50,9 @@ void UVehicleFitnessEligibilitySystem::Update_Implementation(float DeltaTime)
 	
 	float MinAgeRequired = FMath::Max(Config->MinBreedAge, OldestAge * Config->OldestAliveAgeFactor);
 
-	// We use exclude_t to only find entities that DON'T have FFitnessComponent yet.
+	// We use exclude_t to only find entities that DON'T have FEligibleForBreedingTagComponent yet.
 	// We only want to evaluate entities that are flagged for reset.
-	auto IneligibleView = GetRegistry().view<FTrainingDataComponent, FResetGenomeComponent>(entt::exclude_t<FFitnessComponent, FEliteTagComponent>{});
+	auto IneligibleView = GetRegistry().view<FTrainingDataComponent, FResetGenomeComponent, FFitnessComponent>(entt::exclude_t<FEligibleForBreedingTagComponent, FEliteTagComponent>{});
 
 	for (auto Entity : IneligibleView)
 	{
@@ -78,10 +79,7 @@ void UVehicleFitnessEligibilitySystem::Update_Implementation(float DeltaTime)
 
 		if (Age >= MinAgeRequired)
 		{
-			FFitnessComponent& FitComp = GetRegistry().emplace<FFitnessComponent>(Entity);
-			FitComp.Fitness.SetNum(1);
-			FitComp.Fitness[0] = 0.0f;
-			FitComp.BuiltForFitnessIndex = 0;
+			GetRegistry().emplace<FEligibleForBreedingTagComponent>(Entity);
 		}
 	}
 }

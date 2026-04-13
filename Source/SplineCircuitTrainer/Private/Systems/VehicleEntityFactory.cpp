@@ -94,6 +94,12 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 			// Add Genome component
 			FGenomeFloatViewComponent& GenomeView = InRegistry.emplace<FGenomeFloatViewComponent>(Entity);
 
+			// Add Fitness component
+			FFitnessComponent& FitComp = InRegistry.emplace<FFitnessComponent>(Entity);
+			FitComp.Fitness.SetNum(1);
+			FitComp.Fitness[0] = 0.0f;
+			FitComp.BuiltForFitnessIndex = 0;
+
 			// Initialize Neural Network from config
 			TArray<FNeuralNetworkLayerDescriptor> LayerDescriptors = TrainerContext->TrainerConfig->GetNNLayerDescriptors();
 			if (LayerDescriptors.Num() >= 2)

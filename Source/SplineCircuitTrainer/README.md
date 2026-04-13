@@ -58,14 +58,14 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
 The trainer uses the following ECS systems in the `NewGeneration` event:
 - `UVehicleProgressSystem`: Evaluates vehicle distance along the circuit spline.
 - `UVehicleResetFlagSystem`: Flags vehicles for reset if they go off-track or stop making progress.
-- `UVehicleFitnessEligibilitySystem`: Manages adding `FFitnessComponent` based on age and oldest alive factor.
-- `UVehicleFitnessSystem`: Calculates fitness as the cube of the distance traveled for eligible entities. Marks entities with negative fitness for reset.
-- `UEliteSelectionFloatSystem`: Selects top N entities as elites.
-- `UTournamentSelectionSystem`: Selects parents for the next generation.
+- `UVehicleFitnessEligibilitySystem`: Manages adding `FEligibleForBreedingTagComponent` based on age and oldest alive factor. This tag determines which entities can be sampled as parents by the selection system.
+- `UVehicleFitnessSystem`: Accumulates fitness for all entities based on the distance traveled.
+- `UEliteSelectionFloatSystem`: Selects top N eligible entities as elites.
+- `UTournamentSelectionSystem`: Selects parents for the next generation from eligible entities and elites.
 - `UBreedFloatGenomesSystem`: Creates offspring via crossover.
 - `UMutationFloatGenomeSystem`: Applies random variations to offspring.
-- `UVehicleResetSystem`: Physically resets vehicles flagged for reset back to the start.
-- `UGACleanupSystem`: Removes transient GA components for the next cycle.
+- `UVehicleResetSystem`: Physically resets vehicles flagged for reset back to the start and resets their fitness.
+- `UGACleanupSystem`: Removes transient GA components and the eligibility tag for the next cycle.
 - `UGADebugDataSystem`: Collects GA information for visualization (runs during `NewGeneration`).
 - `UVehicleTrainerDebugSystem`: Visualizes the collected debug information using SlateIM. This system runs every frame in the `PostUpdate` event to ensure the standalone debug window remains active and responsive.
 
