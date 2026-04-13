@@ -46,7 +46,6 @@ void UBreedFloatGenomesSystem::Update_Implementation(float /*DeltaTime*/)
 {
 	auto& Registry = GetRegistry();
 
-	// Views: processed in-order via iterators (no caching)
 	auto ResetView = GetView<FResetGenomeComponent, FGenomeFloatViewComponent>();
 	auto PairView = GetView<FBreedingPairComponent>();
 
@@ -54,10 +53,22 @@ void UBreedFloatGenomesSystem::Update_Implementation(float /*DeltaTime*/)
 	{
 		return; // nothing to reset
 	}
-	if (PairView.begin() == PairView.end())
+
+	// Build a map from child entity id -> breeding pair, keyed by ChildEntity.
+	// Only pairs that name a specific child (ChildEntity != 0) are usable.
+	TMap<uint32, const FBreedingPairComponent*> PairByChild;
+	for (auto PairEntity : PairView)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("BreedFloatGenomesSystem: no FBreedingPairComponent entities available."));
-		return;
+		const FBreedingPairComponent& Pair = Registry.get<FBreedingPairComponent>(PairEntity);
+		if (Pair.ChildEntity != 0u)
+		{
+			PairByChild.Add(Pair.ChildEntity, &Pair);
+		}
+	}
+
+	if (PairByChild.IsEmpty())
+	{
+		return; // no eligible children to breed this tick
 	}
 
 	// RNG
@@ -69,23 +80,20 @@ void UBreedFloatGenomesSystem::Update_Implementation(float /*DeltaTime*/)
 		RngPtr = &Rng;
 	}
 
-	auto PairIt = PairView.begin();
-	const auto PairEnd = PairView.end();
 	int32 Index = 0;
-
 	for (auto ResetIt = ResetView.begin(), ResetEnd = ResetView.end(); ResetIt != ResetEnd; ++ResetIt, ++Index)
 	{
-		if (PairIt == PairEnd)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("BreedFloatGenomesSystem: ran out of FBreedingPairComponent entities after processing %d reset entities."), Index);
-			break;
-		}
-
 		const entt::entity ChildEntity = *ResetIt;
-		const entt::entity PairEntity = *PairIt;
-		++PairIt; // consume one pair per reset entity
+		const uint32 ChildId = static_cast<uint32>(ChildEntity);
 
-		const FBreedingPairComponent& Pair = Registry.get<FBreedingPairComponent>(PairEntity);
+		// Only breed this child if tournament selection produced a pair for it
+		const FBreedingPairComponent* const* FoundPair = PairByChild.Find(ChildId);
+		if (!FoundPair)
+		{
+			continue; // not eligible for breeding this tick (e.g. too young, blocked reason)
+		}
+		const FBreedingPairComponent& Pair = **FoundPair;
+
 		const entt::entity ParentA = static_cast<entt::entity>(Pair.ParentA);
 		const entt::entity ParentB = static_cast<entt::entity>(Pair.ParentB);
 
@@ -95,7 +103,7 @@ void UBreedFloatGenomesSystem::Update_Implementation(float /*DeltaTime*/)
 			continue;
 		}
 
-		// Resolve parent genome views: accept either FGenomeFloatViewComponent or FEliteSolutionFloatComponent
+		// Resolve parent genome views
 		if (!Registry.all_of<FGenomeFloatViewComponent>(ChildEntity))
 		{
 			UE_LOG(LogTemp, Warning, TEXT("BreedFloatGenomesSystem: missing FGenomeFloatViewComponent on child (reset index=%d)"), Index);
@@ -161,24 +169,12 @@ void UBreedFloatGenomesSystem::Update_Implementation(float /*DeltaTime*/)
 			CView[g] = value;
 		}
 
-		// Reset child's fitness when a new genome is produced
+		// Reset child's fitness now that a new genome is installed
 		if (Registry.all_of<FFitnessComponent>(ChildEntity))
 		{
 			FFitnessComponent& Fit = Registry.get<FFitnessComponent>(ChildEntity);
 			if (Fit.Fitness.Num() == 0) { Fit.Fitness.SetNum(1, EAllowShrinking::No); }
 			for (int32 iFit = 0; iFit < Fit.Fitness.Num(); ++iFit) { Fit.Fitness[iFit] = 0.0f; }
 		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("BreedFloatGenomesSystem: missing FFitnessComponent on child (Entt id %d)"), static_cast<std::underlying_type_t<entt::entity>>(ChildEntity));
-		}
-	}
-
-	// If any pairs remain unused, warn once
-	if (PairIt != PairEnd)
-	{
-		int32 Remaining = 0;
-		for (; PairIt != PairEnd; ++PairIt) { ++Remaining; }
-		UE_LOG(LogTemp, Warning, TEXT("BreedFloatGenomesSystem: %d FBreedingPairComponent entities left unused."), Remaining);
 	}
 }

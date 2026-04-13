@@ -93,16 +93,52 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessEligibilitySystem_Tests, "SplineCi
 		ASSERT_THAT(IsTrue(Registry.all_of<FFitnessComponent>(E3), "E3 age (60) is more than factor (0.5 * 100 = 50), should have fitness"));
 	}
 
-	TEST_METHOD(ElitesAlwaysGetFitness)
+	TEST_METHOD(RequiresResetTag)
 	{
 		entt::registry& Registry = Context->GetRegistry();
-		entt::entity E_Elite = Registry.create();
-		Registry.emplace<FEliteTagComponent>(E_Elite);
+		entt::entity Entity = Registry.create();
+		FTrainingDataComponent& Data = Registry.emplace<FTrainingDataComponent>(Entity);
 		
-		// Age 1, below MinBreedAge
-		Registry.emplace<FTrainingDataComponent>(E_Elite).CreationTime = World->GetTimeSeconds() - 1.0f;
+		float CurrentTime = World->GetTimeSeconds();
+		Data.CreationTime = CurrentTime - 20.0f; // Age 20 > MinBreedAge 10
+
+		// Should not have fitness because it's not flagged for reset
+		System->Update(0.1f);
+		ASSERT_THAT(IsFalse(Registry.all_of<FFitnessComponent>(Entity), "Entity should not have fitness component if NOT flagged for reset"));
+
+		// Flag for reset
+		Registry.emplace<FResetGenomeComponent>(Entity, FResetGenomeComponent{ FName("SomeReason") });
+		
+		System->Update(0.1f);
+		ASSERT_THAT(IsTrue(Registry.all_of<FFitnessComponent>(Entity), "Entity should have fitness component after being flagged for reset"));
+	}
+
+	TEST_METHOD(BlocksBreedBasedOnReason)
+	{
+		entt::registry& Registry = Context->GetRegistry();
+		FName BlockedReason = FName("BlockedReason");
+		FName AllowedReason = FName("AllowedReason");
+
+		FResetReasonConfig BlockedConfig;
+		BlockedConfig.Reason = BlockedReason;
+		BlockedConfig.bBlockBreed = true;
+		Config->ResetReasonConfigs.Add(BlockedConfig);
+
+		float CurrentTime = World->GetTimeSeconds();
+
+		// E1 has blocked reason
+		entt::entity E1 = Registry.create();
+		Registry.emplace<FTrainingDataComponent>(E1).CreationTime = CurrentTime - 20.0f;
+		Registry.emplace<FResetGenomeComponent>(E1, FResetGenomeComponent{ BlockedReason });
+
+		// E2 has allowed reason
+		entt::entity E2 = Registry.create();
+		Registry.emplace<FTrainingDataComponent>(E2).CreationTime = CurrentTime - 20.0f;
+		Registry.emplace<FResetGenomeComponent>(E2, FResetGenomeComponent{ AllowedReason });
 
 		System->Update(0.1f);
-		ASSERT_THAT(IsTrue(Registry.all_of<FFitnessComponent>(E_Elite), "Elite entities should always get fitness component"));
+
+		ASSERT_THAT(IsFalse(Registry.all_of<FFitnessComponent>(E1), "E1 has blocked reason, should NOT have fitness"));
+		ASSERT_THAT(IsTrue(Registry.all_of<FFitnessComponent>(E2), "E2 has allowed reason, should have fitness"));
 	}
 };

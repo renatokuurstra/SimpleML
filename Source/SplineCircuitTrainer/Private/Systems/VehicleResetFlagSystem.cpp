@@ -9,6 +9,7 @@
 #include "Components/SplineComponent.h"
 #include "GameFramework/Pawn.h"
 #include "DrawDebugHelpers.h"
+#include "VehicleLibrary.h"
 
 UVehicleResetFlagSystem::UVehicleResetFlagSystem()
 {
@@ -64,7 +65,7 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 
 		if (DistanceFromSpline > MaxDistThreshold)
 		{
-			Registry.emplace<FResetGenomeComponent>(Entity);
+			Registry.emplace<FResetGenomeComponent>(Entity, FResetGenomeComponent{ UVehicleLibrary::ReasonTooFarFromSpline });
 			if (TrainerContext->TrainerConfig->bDebugInfo)
 			{
 				DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, FColor::Red, false, 3.0f, 0);
@@ -79,7 +80,7 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 			float AverageVelocity = TrainingData.DistanceTraveled / Age;
 			if (AverageVelocity < MinAverageVelocity)
 			{
-				Registry.emplace<FResetGenomeComponent>(Entity);
+				Registry.emplace<FResetGenomeComponent>(Entity, FResetGenomeComponent{ UVehicleLibrary::ReasonTooSlow });
 				if (TrainerContext->TrainerConfig->bDebugInfo)
 				{
 					DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, FColor::Blue, false, 3.0f, 0);
@@ -91,7 +92,7 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 		// 3. Check for progress timeout
 		if (TrainingData.TimeSinceLastProgress > NoProgressTimeout)
 		{
-			Registry.emplace<FResetGenomeComponent>(Entity);
+			Registry.emplace<FResetGenomeComponent>(Entity, FResetGenomeComponent{ UVehicleLibrary::ReasonNoProgress });
 			if (TrainerContext->TrainerConfig->bDebugInfo)
 			{
 				DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, FColor::Yellow, false, 3.0f, 0);

@@ -41,18 +41,39 @@ void UVehicleFitnessEligibilitySystem::Update_Implementation(float DeltaTime)
 
 	// 2. Identify entities eligible for FFitnessComponent
 	// Criteria:
+	// - Entity is flagged for reset (FResetGenomeComponent)
 	// - MinBreedAge met
 	// - Age >= OldestAliveAgeFactor * OldestAge
 	// - Elite genomes (FEliteTagComponent) always get fitness (they don't reset age, but just in case)
+	// - Reset reason is not blocked for breeding in Config->ResetReasonConfigs
 	
 	float MinAgeRequired = FMath::Max(Config->MinBreedAge, OldestAge * Config->OldestAliveAgeFactor);
 
 	// We use exclude_t to only find entities that DON'T have FFitnessComponent yet.
-	auto IneligibleView = GetRegistry().view<FTrainingDataComponent>(entt::exclude_t<FFitnessComponent, FEliteTagComponent>{});
+	// We only want to evaluate entities that are flagged for reset.
+	auto IneligibleView = GetRegistry().view<FTrainingDataComponent, FResetGenomeComponent>(entt::exclude_t<FFitnessComponent, FEliteTagComponent>{});
 
 	for (auto Entity : IneligibleView)
 	{
 		const FTrainingDataComponent& Data = IneligibleView.get<FTrainingDataComponent>(Entity);
+		const FResetGenomeComponent& ResetComp = IneligibleView.get<FResetGenomeComponent>(Entity);
+
+		// Check if the reason for reset blocks breeding
+		bool bIsBlocked = false;
+		for (const FResetReasonConfig& ReasonConfig : Config->ResetReasonConfigs)
+		{
+			if (ReasonConfig.Reason == ResetComp.ReasonForReset && ReasonConfig.bBlockBreed)
+			{
+				bIsBlocked = true;
+				break;
+			}
+		}
+
+		if (bIsBlocked)
+		{
+			continue;
+		}
+
 		float Age = CurrentTime - Data.CreationTime;
 
 		if (Age >= MinAgeRequired)

@@ -7,6 +7,18 @@
 #include "NeuralNetwork.h"
 #include "VehicleTrainerConfig.generated.h"
 
+USTRUCT(BlueprintType)
+struct SPLINECIRCUITTRAINER_API FResetReasonConfig
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reset", meta = (GetOptions = "GetResetReasonOptions"))
+	FName Reason;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reset")
+	bool bBlockBreed = false;
+};
+
 class APawn;
 
 /**
@@ -110,6 +122,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Fitness Eligibility")
 	float OldestAliveAgeFactor = 0.5f;
 
+	/** Configuration for each reset reason, allowing to block breeding if necessary. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Reset Logic")
+	TArray<FResetReasonConfig> ResetReasonConfigs;
+
 	/** Helper to calculate layer descriptors based on current settings */
 	UFUNCTION(BlueprintCallable, Category = "Neural Network")
 	TArray<FNeuralNetworkLayerDescriptor> GetNNLayerDescriptors() const;
@@ -124,4 +140,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
 	bool bDebugInfo = false;
+
+	UFUNCTION(BlueprintCallable, Category = "Genetic Algorithm")
+	TArray<FName> GetResetReasonOptions() const;
 };

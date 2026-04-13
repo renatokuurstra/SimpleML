@@ -1,6 +1,16 @@
 //Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
 
 #include "VehicleTrainerConfig.h"
+#include "VehicleLibrary.h"
+
+TArray<FName> UVehicleTrainerConfig::GetResetReasonOptions() const
+{
+	return {
+		UVehicleLibrary::ReasonTooFarFromSpline,
+		UVehicleLibrary::ReasonNoProgress,
+		UVehicleLibrary::ReasonTooSlow
+	};
+}
 
 TArray<FNeuralNetworkLayerDescriptor> UVehicleTrainerConfig::GetNNLayerDescriptors() const
 {

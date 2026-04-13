@@ -241,12 +241,32 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 						}
 						else
 						{
-							// Since candidates are sorted, if this one isn't better than the worst elite, 
+							// Since candidates are sorted, if this one isn't better than the worst elite,
 							// subsequent ones won't be either (at least not in a way that matters for top-N).
 							// Wait, that's not entirely true if we have multiple elites to replace.
 							// Actually, if Candidate[i] is NOT better than the worst elite, then Candidate[i+1] (which is worse than Candidate[i])
 							// certainly won't be better than the worst elite.
 							break;
+						}
+					}
+
+					// Batch-fill any elite slot still at placeholder fitness with the best candidate.
+					// This ensures the first valid solution immediately seeds every elite slot so all
+					// slots are usable as breeding parents from the very next generation.
+					if (IndexScratch.Num() > 0)
+					{
+						const FEntityFitness& BestCandidate = Bucket[IndexScratch[0]];
+						const float PlaceholderFitness = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
+						for (entt::entity EliteE : ElitePool)
+						{
+							const float EliteFitVal = Registry.get<FFitnessComponent>(EliteE).Fitness[FitnessIndex];
+							if (EliteFitVal == PlaceholderFitness)
+							{
+								FFitnessComponent& EliteFit = Registry.get<FFitnessComponent>(EliteE);
+								EliteFit.Fitness[FitnessIndex] = BestCandidate.Value;
+								EliteFit.BuiltForFitnessIndex = FitnessIndex;
+								CopyGenomeToElite(BestCandidate.Entity, EliteE, FitnessIndex);
+							}
 						}
 					}
 				}

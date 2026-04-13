@@ -20,6 +20,10 @@ class SPLINECIRCUITTRAINER_API UVehicleLibrary : public UBlueprintFunctionLibrar
 	GENERATED_BODY()
 
 public:
+	static const FName ReasonTooFarFromSpline;
+	static const FName ReasonNoProgress;
+	static const FName ReasonTooSlow;
+
 	/**
 	 * Calculates the spawn transform for a vehicle at a given spline distance.
 	 */

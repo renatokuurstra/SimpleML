@@ -6,6 +6,10 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PawnMovementComponent.h"
 
+const FName UVehicleLibrary::ReasonTooFarFromSpline = FName("TooFarFromSpline");
+const FName UVehicleLibrary::ReasonNoProgress = FName("NoProgress");
+const FName UVehicleLibrary::ReasonTooSlow = FName("TooSlow");
+
 void UVehicleLibrary::GetVehicleSpawnTransform(const USplineComponent* Spline, float Distance, float VerticalOffset, FVector& OutLocation, FRotator& OutRotation)
 {
 	if (!Spline) return;

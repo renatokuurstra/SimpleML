@@ -1,4 +1,4 @@
-﻿//Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
+﻿﻿//Copyright (c) 2025 Renato Kuurstra. Licensed under the MIT License. See LICENSE file in the project root for details.
 
 #include "Systems/TournamentSelectionSystem.h"
 #include "Components/GenomeComponents.h"
@@ -162,6 +162,7 @@ void UTournamentSelectionSystem::Update_Implementation(float /*DeltaTime*/)
 			FBreedingPairComponent Link{};
 			Link.ParentA = static_cast<uint32>(Parents[0]);
 			Link.ParentB = static_cast<uint32>(Parents[1]);
+			Link.ChildEntity = static_cast<uint32>(Target);
 			Registry.emplace<FBreedingPairComponent>(LinkEntity, Link);
 		}
 		else

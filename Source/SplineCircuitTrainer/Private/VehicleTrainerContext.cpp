@@ -29,66 +29,37 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	
-	auto& BeginPlayEvent = EcsChainEvents.ChainEvents.FindOrAdd(FEcsChainEventNames::BeginPlay);
-
-	//Create all necessary entities with proper components
-	UVehicleEntityFactory* VehicleEntityFactory = CreateDefaultSubobject<UVehicleEntityFactory>("VehicleEntityFactory");
-	//Initialise all NN on entities
-	USimpleMLNNFloatInitSystem* InitSystem = CreateDefaultSubobject<USimpleMLNNFloatInitSystem>("NNFloatInitSys");
-
-	BeginPlayEvent.Elements.Add(VehicleEntityFactory);
-	BeginPlayEvent.Elements.Add(InitSystem);
-
 	// Create a dedicated debug entity
 	const entt::entity DebugEntity = GetRegistry().create();
 	GetRegistry().emplace<FGeneticAlgorithmDebugComponent>(DebugEntity);
 	
+	auto& BeginPlayEvent = EcsChainEvents.ChainEvents.FindOrAdd(FEcsChainEventNames::BeginPlay);
+
+	BeginPlayEvent.Elements.Add(CreateDefaultSubobject<UVehicleEntityFactory>("VehicleEntityFactory"));
+	BeginPlayEvent.Elements.Add(CreateDefaultSubobject<USimpleMLNNFloatInitSystem>("NNFloatInitSys"));
+	
 	auto& EvaluateEvent = EcsChainEvents.ChainEvents.FindOrAdd(EvaluateNetworkEvent);
 	
-	//Feedforward, move inputs to outputs
-	USimpleMLNNFloatFeedforwardSystem* NNFeedForward = CreateDefaultSubobject<USimpleMLNNFloatFeedforwardSystem>("FeedForwardSys");
-	//Prepare neural network inputs
-	UVehicleNNInputSystem* NNInputSystem = CreateDefaultSubobject<UVehicleNNInputSystem>("NNInputSys");
-	//Move outputs of networks to the pawn movement functions
-	UVehicleNNOutputSystem* NNOutputSystem = CreateDefaultSubobject<UVehicleNNOutputSystem>("NNOutputSys");
-	
-	EvaluateEvent.Elements.Add(NNInputSystem);
-	EvaluateEvent.Elements.Add(NNFeedForward);
-	EvaluateEvent.Elements.Add(NNOutputSystem);
-	
+	EvaluateEvent.Elements.Add(CreateDefaultSubobject<USimpleMLNNFloatFeedforwardSystem>("FeedForwardSys"));
+	EvaluateEvent.Elements.Add(CreateDefaultSubobject<UVehicleNNInputSystem>("NNInputSys"));
+	EvaluateEvent.Elements.Add(CreateDefaultSubobject<UVehicleNNOutputSystem>("NNOutputSys"));
 	EvaluateEvent.bIsUpdateSystems = true;
 	EvaluateEvent.UpdateFreqSec = 0.1f;
 	
 	auto& GAEvent = EcsChainEvents.ChainEvents.FindOrAdd(NewGenerationEvent);
 	
-	UVehicleProgressSystem* ProgressSystem = CreateDefaultSubobject<UVehicleProgressSystem>("ProgressSys");
-	UVehicleResetFlagSystem* ResetFlagSystem = CreateDefaultSubobject<UVehicleResetFlagSystem>("ResetFlagSys");
-	UVehicleFitnessEligibilitySystem* FitnessEligibilitySystem = CreateDefaultSubobject<UVehicleFitnessEligibilitySystem>("FitnessEligibilitySys");
-	UVehicleFitnessSystem* FitnessSystem = CreateDefaultSubobject<UVehicleFitnessSystem>("FitnessSys");
-	UEliteSelectionFloatSystem* EliteSys = CreateDefaultSubobject<UEliteSelectionFloatSystem>("EliteSys");
-	UTournamentSelectionSystem* SelectionSys = CreateDefaultSubobject<UTournamentSelectionSystem>("SelectionSys");
-	UBreedFloatGenomesSystem* BreedSys = CreateDefaultSubobject<UBreedFloatGenomesSystem>("BreedSys");
-	UMutationFloatGenomeSystem* MutationSys = CreateDefaultSubobject<UMutationFloatGenomeSystem>("MutationSys");
-	UVehicleResetSystem* ResetSystem = CreateDefaultSubobject<UVehicleResetSystem>("ResetSys");
-	UGACleanupSystem* CleanupSys = CreateDefaultSubobject<UGACleanupSystem>("CleanupSys");
-
-	
-	GAEvent.Elements.Add(ProgressSystem);
-	GAEvent.Elements.Add(ResetFlagSystem);
-	GAEvent.Elements.Add(FitnessEligibilitySystem);
-	GAEvent.Elements.Add(FitnessSystem);
-	GAEvent.Elements.Add(EliteSys);
-	GAEvent.Elements.Add(SelectionSys);
-	GAEvent.Elements.Add(BreedSys);
-	GAEvent.Elements.Add(MutationSys);
-	GAEvent.Elements.Add(ResetSystem);
-	GAEvent.Elements.Add(CleanupSys);
-
-	UGADebugDataSystem* GADebugDataSys = CreateDefaultSubobject<UGADebugDataSystem>("GADebugDataSys");
-	UVehicleTrainerDebugSystem* VehicleDebugSys = CreateDefaultSubobject<UVehicleTrainerDebugSystem>("VehicleDebugSys");
-	
-	GAEvent.Elements.Add(GADebugDataSys);
-	GAEvent.Elements.Add(VehicleDebugSys);
+	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleProgressSystem>("ProgressSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleResetFlagSystem>("ResetFlagSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleFitnessEligibilitySystem>("FitnessEligibilitySys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleFitnessSystem>("FitnessSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UEliteSelectionFloatSystem>("EliteSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UTournamentSelectionSystem>("SelectionSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UBreedFloatGenomesSystem>("BreedSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UMutationFloatGenomeSystem>("MutationSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleResetSystem>("ResetSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UGACleanupSystem>("CleanupSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UGADebugDataSystem>("GADebugDataSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleTrainerDebugSystem>("VehicleDebugSys"));
 	
 	GAEvent.bIsUpdateSystems = true;
 	GAEvent.UpdateFreqSec = 0.5f;

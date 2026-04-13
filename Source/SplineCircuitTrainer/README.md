@@ -41,6 +41,7 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
   - `NoProgressTimeout`: Max time allowed without significant progress.
   - `MinimumProgressBetweenEvaluations`: Min progress required to reset the timeout timer.
   - `MinAverageVelocity`: Min speed required during the vehicle's lifespan.
+  - `ResetReasonConfigs`: Configuration for each reset reason, allowing to block breeding if necessary.
 - `Genetic Algorithm|Fitness Eligibility`:
   - `MinBreedAge`: Minimum age in seconds before an entity is eligible for fitness scoring and breeding.
   - `OldestAliveAgeFactor`: Percentage (0.0 - 1.0) of the oldest currently alive entity's age required for fitness eligibility.
@@ -78,3 +79,6 @@ When `bDebugInfo` is enabled in the `UVehicleTrainerConfig`, a debug panel is di
 ### UVehicleLibrary
 - `GetVehicleSpawnTransform`: Calculates location/rotation at a spline distance with vertical offset.
 - `ResetPawnPhysicalState`: Clears velocity and teleports pawn with physics reset.
+- `ReasonTooFarFromSpline`: Constant FName for reset reason when too far from spline.
+- `ReasonNoProgress`: Constant FName for reset reason when not making progress.
+- `ReasonTooSlow`: Constant FName for reset reason when average velocity is too low.

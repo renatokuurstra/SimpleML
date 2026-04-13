@@ -21,4 +21,8 @@ struct GENETICALGORITHM_API FBreedingPairComponent
 	// Second parent entity selected by the system (0 means invalid/null).
 	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm")
 	uint32 ParentB = 0u;
+
+	// The child entity this pair is intended for (0 means unbound/legacy).
+	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm")
+	uint32 ChildEntity = 0u;
 };

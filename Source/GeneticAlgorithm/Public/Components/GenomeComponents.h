@@ -59,7 +59,9 @@ USTRUCT(BlueprintType)
 struct GENETICALGORITHM_API FResetGenomeComponent
 {
 	GENERATED_BODY()
-	// Intentionally empty
+
+	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm")
+	FName ReasonForReset;
 };
 
 /**
