@@ -38,8 +38,12 @@ void AVehicleTrainerManager::SpawnContexts()
 		AVehicleTrainerContext* NewContext = World->SpawnActorDeferred<AVehicleTrainerContext>(AVehicleTrainerContext::StaticClass(), FTransform(GetActorRotation(), GetActorLocation()), this, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 		if (NewContext)
 		{
+#if WITH_EDITOR
+			NewContext->SetActorLabel(FString::Printf(TEXT("VehicleTrainerContext_%d"), i));
+#endif
 			NewContext->TrainerConfig = TrainerConfig;
 			NewContext->CircuitActor = CircuitActor;
+			NewContext->ContextIndex = i;
 			
 			// Assign seed: use ContextSeeds if available, otherwise use index
 			if (ContextSeeds.IsValidIndex(i))

@@ -17,6 +17,9 @@ class SPLINECIRCUITTRAINER_API UVehicleEntityFactory : public UEcsSystem
 
 public:
 	UVehicleEntityFactory();
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
+	int32 ContextIndex = -1;
+
 	virtual void Initialize_Implementation(AEcsContext* InContext) override;
 };

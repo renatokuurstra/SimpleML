@@ -31,6 +31,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	int32 RandomSeed = 0;
 
+	/** Index assigned by the manager to identify this context */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
+	int32 ContextIndex = -1;
+
 	/** Helper function to retrieve the spline component from the CircuitActor */
 	UFUNCTION(BlueprintCallable, Category = "Trainer")
 	USplineComponent* GetCircuitSpline() const;

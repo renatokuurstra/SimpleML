@@ -53,6 +53,7 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.Owner = TrainerContext;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		SpawnParams.Name = FName(*FString::Printf(TEXT("Vehicle_C%d_V%d"), ContextIndex, i));
 		
 		FVector SpawnLocation;
 		FRotator SpawnRotation;
@@ -68,9 +69,12 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 		}
 
 		APawn* NewPawn = World->SpawnActor<APawn>(PawnClass, SpawnLocation, SpawnRotation, SpawnParams);
-
+		
 		if (NewPawn)
 		{
+#if WITH_EDITOR
+			NewPawn->SetActorLabel(FString::Printf(TEXT("Vehicle_C%d_V%d"), ContextIndex, i));
+#endif
 			// Spawn AI Controller and possess
 			if (AAIController* AIController = World->SpawnActor<AAIController>())
 			{

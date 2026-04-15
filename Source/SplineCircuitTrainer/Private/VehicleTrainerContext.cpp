@@ -120,9 +120,13 @@ void AVehicleTrainerContext::InitializeSystemsFromConfig()
 					MutationSys->RandomMutationChance = TrainerConfig->RandomMutationChance;
 					MutationSys->ContextSeed = RandomSeed;
 				}
-				else if (USimpleMLNNFloatInitSystem* InitSys = Cast<USimpleMLNNFloatInitSystem>(Element.GetInterface()))
+ 			else if (USimpleMLNNFloatInitSystem* InitSys = Cast<USimpleMLNNFloatInitSystem>(Element.GetInterface()))
 				{
 					InitSys->ContextSeed = RandomSeed;
+				}
+				else if (UVehicleEntityFactory* FactorySys = Cast<UVehicleEntityFactory>(Element.GetInterface()))
+				{
+					FactorySys->ContextIndex = ContextIndex;
 				}
 			}
 		}
