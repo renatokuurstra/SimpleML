@@ -118,9 +118,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Fitness Eligibility")
 	float MinBreedAge = 10.0f;
 
-	/** Percentage (0.0 - 1.0) of the oldest currently alive entity's age required for fitness eligibility. */
+	/** Percentage (0.0 - 1.0) of the highest fitness overall required for fitness eligibility. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Fitness Eligibility")
-	float OldestAliveAgeFactor = 0.5f;
+	float HighestFitnessFactor = 0.5f;
 
 	/** Configuration for each reset reason, allowing to block breeding if necessary. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Reset Logic")

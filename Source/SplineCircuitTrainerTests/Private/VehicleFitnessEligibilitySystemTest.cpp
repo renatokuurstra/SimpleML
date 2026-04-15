@@ -29,7 +29,7 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessEligibilitySystem_Tests, "SplineCi
 		Context->TrainerConfig = Config;
 		
 		Config->MinBreedAge = 10.0f;
-		Config->OldestAliveAgeFactor = 0.5f;
+		Config->HighestFitnessFactor = 0.5f;
 
 		System = NewObject<UVehicleFitnessEligibilitySystem>();
 		ASSERT_THAT(IsNotNull(System, "VehicleFitnessEligibilitySystem should be successfully created"));
@@ -45,52 +45,70 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessEligibilitySystem_Tests, "SplineCi
 		}
 	}
 
-	TEST_METHOD(AddsFitnessComponentWhenMinAgeMet)
+	TEST_METHOD(AddsEligibilityTagWhenMinAgeMet)
 	{
 		entt::registry& Registry = Context->GetRegistry();
 		entt::entity Entity = Registry.create();
 		FTrainingDataComponent& Data = Registry.emplace<FTrainingDataComponent>(Entity);
+		Registry.emplace<FResetGenomeComponent>(Entity);
+		Registry.emplace<FFitnessComponent>(Entity);
 		
 		float StartTime = World->GetTimeSeconds();
 		Data.CreationTime = StartTime;
 
-		// Initial check - should not have fitness
+		// Initial check - should not be eligible
 		System->Update(0.1f);
-		ASSERT_THAT(IsFalse(Registry.all_of<FFitnessComponent>(Entity), "Entity should not have fitness component initially"));
+		ASSERT_THAT(IsFalse(Registry.all_of<FEligibleForBreedingTagComponent>(Entity), "Entity should not be eligible initially"));
 
-		// "Fast forward" time in the component (since we can't easily advance World time in a simple test without ticking)
+		// "Fast forward" time in the component
 		Data.CreationTime = StartTime - 11.0f; // Age = 11 > MinBreedAge 10
 		
 		System->Update(0.1f);
-		ASSERT_THAT(IsTrue(Registry.all_of<FFitnessComponent>(Entity), "Entity should have fitness component after MinBreedAge is met"));
-		
-		FFitnessComponent& Fit = Registry.get<FFitnessComponent>(Entity);
-		ASSERT_THAT(AreEqual(1, Fit.Fitness.Num(), "Fitness array should be initialized"));
-		ASSERT_THAT(IsNear(0.0f, Fit.Fitness[0], 0.0001f, "Fitness value should be 0.0"));
+		ASSERT_THAT(IsTrue(Registry.all_of<FEligibleForBreedingTagComponent>(Entity), "Entity should be eligible after MinBreedAge is met (and MaxFitness is -MAX_FLT)"));
 	}
 
-	TEST_METHOD(RespectsOldestAliveAgeFactor)
+	TEST_METHOD(RespectsHighestFitnessFactor)
 	{
 		entt::registry& Registry = Context->GetRegistry();
 		float CurrentTime = World->GetTimeSeconds();
 
-		// E1 is the oldest (Age 100)
+		// E1 has high fitness (100)
 		entt::entity E1 = Registry.create();
-		Registry.emplace<FTrainingDataComponent>(E1).CreationTime = CurrentTime - 100.0f;
+		Registry.emplace<FTrainingDataComponent>(E1).CreationTime = CurrentTime - 20.0f;
+		Registry.emplace<FResetGenomeComponent>(E1);
+		FFitnessComponent& F1 = Registry.emplace<FFitnessComponent>(E1);
+		F1.Fitness.Add(100.0f);
 
-		// E2 is Age 40 (Less than 0.5 * 100 = 50)
+		// E2 has low fitness (40) - less than 0.5 * 100 = 50
 		entt::entity E2 = Registry.create();
-		Registry.emplace<FTrainingDataComponent>(E2).CreationTime = CurrentTime - 40.0f;
+		Registry.emplace<FTrainingDataComponent>(E2).CreationTime = CurrentTime - 20.0f;
+		Registry.emplace<FResetGenomeComponent>(E2);
+		FFitnessComponent& F2 = Registry.emplace<FFitnessComponent>(E2);
+		F2.Fitness.Add(40.0f);
 
-		// E3 is Age 60 (More than 0.5 * 100 = 50)
+		// E3 has medium fitness (60) - more than 0.5 * 100 = 50
 		entt::entity E3 = Registry.create();
-		Registry.emplace<FTrainingDataComponent>(E3).CreationTime = CurrentTime - 60.0f;
+		Registry.emplace<FTrainingDataComponent>(E3).CreationTime = CurrentTime - 20.0f;
+		Registry.emplace<FResetGenomeComponent>(E3);
+		FFitnessComponent& F3 = Registry.emplace<FFitnessComponent>(E3);
+		F3.Fitness.Add(60.0f);
 
 		System->Update(0.1f);
 
-		ASSERT_THAT(IsTrue(Registry.all_of<FFitnessComponent>(E1), "Oldest entity should have fitness"));
-		ASSERT_THAT(IsFalse(Registry.all_of<FFitnessComponent>(E2), "E2 age (40) is less than factor (0.5 * 100 = 50), should NOT have fitness"));
-		ASSERT_THAT(IsTrue(Registry.all_of<FFitnessComponent>(E3), "E3 age (60) is more than factor (0.5 * 100 = 50), should have fitness"));
+		ASSERT_THAT(IsTrue(Registry.all_of<FEligibleForBreedingTagComponent>(E1), "High fitness entity should be eligible"));
+		ASSERT_THAT(IsFalse(Registry.all_of<FEligibleForBreedingTagComponent>(E2), "E2 fitness (40) is less than factor (0.5 * 100 = 50), should NOT be eligible"));
+		ASSERT_THAT(IsTrue(Registry.all_of<FEligibleForBreedingTagComponent>(E3), "E3 fitness (60) is more than factor (0.5 * 100 = 50), should be eligible"));
+	}
+
+	TEST_METHOD(ElitesAreAlwaysEligible)
+	{
+		entt::registry& Registry = Context->GetRegistry();
+		entt::entity Elite = Registry.create();
+		Registry.emplace<FEliteTagComponent>(Elite);
+		// Elites don't need FResetGenomeComponent or MinBreedAge for eligibility in the new system
+
+		System->Update(0.1f);
+		ASSERT_THAT(IsTrue(Registry.all_of<FEligibleForBreedingTagComponent>(Elite), "Elites should always be eligible"));
 	}
 
 	TEST_METHOD(RequiresResetTag)
@@ -98,19 +116,20 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessEligibilitySystem_Tests, "SplineCi
 		entt::registry& Registry = Context->GetRegistry();
 		entt::entity Entity = Registry.create();
 		FTrainingDataComponent& Data = Registry.emplace<FTrainingDataComponent>(Entity);
+		Registry.emplace<FFitnessComponent>(Entity);
 		
 		float CurrentTime = World->GetTimeSeconds();
 		Data.CreationTime = CurrentTime - 20.0f; // Age 20 > MinBreedAge 10
 
-		// Should not have fitness because it's not flagged for reset
+		// Should not be eligible because it's not flagged for reset
 		System->Update(0.1f);
-		ASSERT_THAT(IsFalse(Registry.all_of<FFitnessComponent>(Entity), "Entity should not have fitness component if NOT flagged for reset"));
+		ASSERT_THAT(IsFalse(Registry.all_of<FEligibleForBreedingTagComponent>(Entity), "Entity should not be eligible if NOT flagged for reset"));
 
 		// Flag for reset
 		Registry.emplace<FResetGenomeComponent>(Entity, FResetGenomeComponent{ FName("SomeReason") });
 		
 		System->Update(0.1f);
-		ASSERT_THAT(IsTrue(Registry.all_of<FFitnessComponent>(Entity), "Entity should have fitness component after being flagged for reset"));
+		ASSERT_THAT(IsTrue(Registry.all_of<FEligibleForBreedingTagComponent>(Entity), "Entity should be eligible after being flagged for reset"));
 	}
 
 	TEST_METHOD(BlocksBreedBasedOnReason)
@@ -130,15 +149,17 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessEligibilitySystem_Tests, "SplineCi
 		entt::entity E1 = Registry.create();
 		Registry.emplace<FTrainingDataComponent>(E1).CreationTime = CurrentTime - 20.0f;
 		Registry.emplace<FResetGenomeComponent>(E1, FResetGenomeComponent{ BlockedReason });
+		Registry.emplace<FFitnessComponent>(E1);
 
 		// E2 has allowed reason
 		entt::entity E2 = Registry.create();
 		Registry.emplace<FTrainingDataComponent>(E2).CreationTime = CurrentTime - 20.0f;
 		Registry.emplace<FResetGenomeComponent>(E2, FResetGenomeComponent{ AllowedReason });
+		Registry.emplace<FFitnessComponent>(E2);
 
 		System->Update(0.1f);
 
-		ASSERT_THAT(IsFalse(Registry.all_of<FFitnessComponent>(E1), "E1 has blocked reason, should NOT have fitness"));
-		ASSERT_THAT(IsTrue(Registry.all_of<FFitnessComponent>(E2), "E2 has allowed reason, should have fitness"));
+		ASSERT_THAT(IsFalse(Registry.all_of<FEligibleForBreedingTagComponent>(E1), "E1 has blocked reason, should NOT be eligible"));
+		ASSERT_THAT(IsTrue(Registry.all_of<FEligibleForBreedingTagComponent>(E2), "E2 has allowed reason, should be eligible"));
 	}
 };

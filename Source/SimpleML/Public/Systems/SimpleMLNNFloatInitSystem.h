@@ -21,4 +21,8 @@ public:
 	}
 
 	virtual void Update_Implementation(float DeltaTime) override;
+
+	/** Base seed from the context to ensure diversity in multi-context setups */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NeuralNetwork|Initialization")
+	int32 ContextSeed = 0;
 };

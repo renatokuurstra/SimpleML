@@ -26,30 +26,43 @@ void UVehicleFitnessEligibilitySystem::Update_Implementation(float DeltaTime)
 	float CurrentTime = GetContext()->GetWorld()->GetTimeSeconds();
 	UVehicleTrainerConfig* Config = TrainerContext->TrainerConfig;
 
-	// 1. Find the oldest currently alive entity (using FTrainingDataComponent)
-	float OldestAge = 0.0f;
-	auto AllEntitiesView = GetView<FTrainingDataComponent>();
-
-	for (auto Entity : AllEntitiesView)
+	// 1. Ensure all elites are marked as eligible.
+	// Elites might not have FResetGenomeComponent, but they should always be eligible for breeding.
+	auto EliteView = GetRegistry().view<FEliteTagComponent>(entt::exclude_t<FEligibleForBreedingTagComponent>{});
+	for (auto Entity : EliteView)
 	{
-		const FTrainingDataComponent& Data = AllEntitiesView.get<FTrainingDataComponent>(Entity);
-		float Age = CurrentTime - Data.CreationTime;
-		if (Age > OldestAge)
+		GetRegistry().emplace<FEligibleForBreedingTagComponent>(Entity);
+	}
+
+	// 2. Find the highest fitness overall (including elites and currently alive entities)
+	float MaxFitness = -MAX_FLT;
+	auto AllFitnessView = GetView<FFitnessComponent>();
+
+	for (auto Entity : AllFitnessView)
+	{
+		const FFitnessComponent& Fit = AllFitnessView.get<FFitnessComponent>(Entity);
+		// Assuming we care about the first fitness index (index 0) for eligibility
+		if (Fit.Fitness.Num() > 0)
 		{
-			OldestAge = Age;
+			if (Fit.Fitness[0] > MaxFitness)
+			{
+				MaxFitness = Fit.Fitness[0];
+			}
 		}
 	}
 
-	// 2. Identify entities eligible for breeding
+	// 3. Identify entities eligible for breeding
 	// Criteria:
 	// - Entity is flagged for reset (FResetGenomeComponent)
 	// - MinBreedAge met
-	// - Age >= OldestAliveAgeFactor * OldestAge
-	// - Elite genomes (FEliteTagComponent) always get fitness (they don't reset age, but just in case)
+	// - Fitness >= HighestFitnessFactor * MaxFitness
 	// - Reset reason is not blocked for breeding in Config->ResetReasonConfigs
 	
-	float MinAgeRequired = FMath::Max(Config->MinBreedAge, OldestAge * Config->OldestAliveAgeFactor);
-
+	// If MaxFitness is still -MAX_FLT, it means no one has fitness yet.
+	// In that case, we might fall back to allowing anyone who met MinBreedAge?
+	// The requirement says "solutions with at least that much", which implies fitness comparison.
+	// If MaxFitness is 0 (initial), then anyone with fitness >= 0 is eligible.
+	
 	// We use exclude_t to only find entities that DON'T have FEligibleForBreedingTagComponent yet.
 	// We only want to evaluate entities that are flagged for reset.
 	auto IneligibleView = GetRegistry().view<FTrainingDataComponent, FResetGenomeComponent, FFitnessComponent>(entt::exclude_t<FEligibleForBreedingTagComponent, FEliteTagComponent>{});
@@ -58,6 +71,7 @@ void UVehicleFitnessEligibilitySystem::Update_Implementation(float DeltaTime)
 	{
 		const FTrainingDataComponent& Data = IneligibleView.get<FTrainingDataComponent>(Entity);
 		const FResetGenomeComponent& ResetComp = IneligibleView.get<FResetGenomeComponent>(Entity);
+		const FFitnessComponent& FitComp = IneligibleView.get<FFitnessComponent>(Entity);
 
 		// Check if the reason for reset blocks breeding
 		bool bIsBlocked = false;
@@ -76,8 +90,24 @@ void UVehicleFitnessEligibilitySystem::Update_Implementation(float DeltaTime)
 		}
 
 		float Age = CurrentTime - Data.CreationTime;
+		
+		if (Age < Config->MinBreedAge)
+		{
+			continue;
+		}
 
-		if (Age >= MinAgeRequired)
+		float EntityFitness = (FitComp.Fitness.Num() > 0) ? FitComp.Fitness[0] : -MAX_FLT;
+
+		// Eligibility check:
+		// If MaxFitness is still very low, we might want a minimum threshold or just let them through if they lived long enough.
+		// But the prompt says "at least that much" of the highest fitness.
+		bool bPassFitnessThreshold = true;
+		if (MaxFitness > -MAX_FLT)
+		{
+			bPassFitnessThreshold = (EntityFitness >= MaxFitness * Config->HighestFitnessFactor);
+		}
+
+		if (bPassFitnessThreshold)
 		{
 			GetRegistry().emplace<FEligibleForBreedingTagComponent>(Entity);
 		}

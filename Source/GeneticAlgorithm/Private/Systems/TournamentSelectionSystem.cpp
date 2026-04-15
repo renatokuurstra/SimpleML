@@ -132,10 +132,10 @@ void UTournamentSelectionSystem::Update_Implementation(float /*DeltaTime*/)
 
 	}
 
-	// RNG: seed once and advance across updates if RandomSeed != 0
-	if (!bRngSeeded && RandomSeed != 0)
+	// RNG: seed once and advance across updates if RandomSeed != 0 or ContextSeed != 0
+	if (!bRngSeeded && (RandomSeed != 0 || ContextSeed != 0))
 	{
-		Rng.Initialize(RandomSeed);
+		Rng.Initialize(RandomSeed + ContextSeed);
 		bRngSeeded = true;
 		bUseStream = true;
 	}

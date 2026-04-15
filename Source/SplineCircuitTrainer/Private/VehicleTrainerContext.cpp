@@ -19,7 +19,6 @@
 #include "Systems/VehicleResetSystem.h"
 #include "Systems/GACleanupSystem.h"
 #include "Systems/GADebugDataSystem.h"
-#include "Systems/VehicleTrainerDebugSystem.h"
 #include "Components/GenomeComponents.h"
 
 FName EvaluateNetworkEvent = FName("EvaluateNetworks");
@@ -59,7 +58,6 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleResetSystem>("ResetSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UGACleanupSystem>("CleanupSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UGADebugDataSystem>("GADebugDataSys"));
-	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleTrainerDebugSystem>("VehicleDebugSys"));
 	
 	GAEvent.bIsUpdateSystems = true;
 	GAEvent.UpdateFreqSec = 0.5f;
@@ -110,6 +108,7 @@ void AVehicleTrainerContext::InitializeSystemsFromConfig()
 					SelectionSys->TournamentSize = TrainerConfig->TournamentSize;
 					SelectionSys->SelectionPressure = TrainerConfig->SelectionPressure;
 					SelectionSys->bHigherIsBetter = true;
+					SelectionSys->ContextSeed = RandomSeed;
 				}
 				else if (UBreedFloatGenomesSystem* BreedSys = Cast<UBreedFloatGenomesSystem>(Element.GetInterface()))
 				{
@@ -119,10 +118,21 @@ void AVehicleTrainerContext::InitializeSystemsFromConfig()
 				{
 					MutationSys->PerValueDeltaPercent = TrainerConfig->PerValueDeltaPercent;
 					MutationSys->RandomMutationChance = TrainerConfig->RandomMutationChance;
+					MutationSys->ContextSeed = RandomSeed;
+				}
+				else if (USimpleMLNNFloatInitSystem* InitSys = Cast<USimpleMLNNFloatInitSystem>(Element.GetInterface()))
+				{
+					InitSys->ContextSeed = RandomSeed;
 				}
 			}
 		}
 	}
+}
+
+void AVehicleTrainerContext::BeginPlay()
+{
+	InitializeSystemsFromConfig();
+	Super::BeginPlay();
 }
 
 void AVehicleTrainerContext::EndPlay(const EEndPlayReason::Type EndPlayReason)

@@ -19,9 +19,16 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
 5. Call `NextGeneration()` to evolve the population when they reach the end of a trial.
 
 ## API
+### AVehicleTrainerManager
+- `TrainerConfig`: Configuration used for each context.
+- `CircuitActor`: Actor containing the spline circuit to be used by all contexts.
+- `NumContexts`: Number of independent contexts to spawn.
+- `ContextSeeds`: Optional array to manually assign unique seeds to each context. If empty, seeds are assigned progressively (0, 1, 2, ...).
+
 ### AVehicleTrainerContext
 - `TrainerConfig`: Configuration data asset.
 - `CircuitActor`: Actor containing the spline for the circuit.
+- `RandomSeed`: Unique seed for this context, passed down from the Manager.
 - `NextGeneration()`: Triggers the GA evolution step.
 - `ExecuteEvent("EvaluateNetworks")`: Manually triggers NN feedforward and output application.
 
@@ -44,7 +51,7 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
   - `ResetReasonConfigs`: Configuration for each reset reason, allowing to block breeding if necessary.
 - `Genetic Algorithm|Fitness Eligibility`:
   - `MinBreedAge`: Minimum age in seconds before an entity is eligible for fitness scoring and breeding.
-  - `OldestAliveAgeFactor`: Percentage (0.0 - 1.0) of the oldest currently alive entity's age required for fitness eligibility.
+  - `HighestFitnessFactor`: Percentage (0.0 - 1.0) of the highest fitness overall required for fitness eligibility.
 - `Debug`:
   - `bDebugInfo`: Enables debug visualizations (e.g., spheres when vehicles are reset).
 
@@ -58,7 +65,7 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
 The trainer uses the following ECS systems in the `NewGeneration` event:
 - `UVehicleProgressSystem`: Evaluates vehicle distance along the circuit spline.
 - `UVehicleResetFlagSystem`: Flags vehicles for reset if they go off-track or stop making progress.
-- `UVehicleFitnessEligibilitySystem`: Manages adding `FEligibleForBreedingTagComponent` based on age and oldest alive factor. This tag determines which entities can be sampled as parents by the selection system.
+- `UVehicleFitnessEligibilitySystem`: Manages adding `FEligibleForBreedingTagComponent` based on fitness and highest fitness factor. This tag determines which entities can be sampled as parents by the selection system. Elites are always eligible.
 - `UVehicleFitnessSystem`: Accumulates fitness for all entities based on the distance traveled.
 - `UEliteSelectionFloatSystem`: Selects top N eligible entities as elites.
 - `UTournamentSelectionSystem`: Selects parents for the next generation from eligible entities and elites.

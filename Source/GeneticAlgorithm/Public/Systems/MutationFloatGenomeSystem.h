@@ -56,6 +56,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Mutation")
 	int32 RandomSeed = 0;
 
+	/** Base seed from the context to avoid identical behavior in multi-context setups */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Mutation")
+	int32 ContextSeed = 0;
+
 	virtual void Update_Implementation(float DeltaTime) override;
 private:
 	FRandomStream Rng;

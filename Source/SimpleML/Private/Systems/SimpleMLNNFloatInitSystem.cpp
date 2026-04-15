@@ -12,9 +12,10 @@ void USimpleMLNNFloatInitSystem::Update_Implementation(float DeltaTime)
 		if (!Comp.Network.bIsInitialized)
 		{
 			// Initialize weights/biases with a unique seed per entity to ensure diversity in population.
-			// Using the entity index as part of the seed.
+			// Combine the global context seed with the entity index.
 			const int32 EntityId = static_cast<int32>(entt::to_integral(Entity));
-			Comp.Network.InitializeWeightsUniform(static_cast<float>(-1.0f), static_cast<float>(1.0f), EntityId);
+			const int32 FinalSeed = ContextSeed + EntityId;
+			Comp.Network.InitializeWeightsUniform(static_cast<float>(-1.0f), static_cast<float>(1.0f), FinalSeed);
 			Comp.Network.bIsInitialized = true;
 		}
 	}

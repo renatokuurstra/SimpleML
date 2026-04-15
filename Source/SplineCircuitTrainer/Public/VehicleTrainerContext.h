@@ -27,6 +27,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	TObjectPtr<AActor> CircuitActor;
 
+	/** Unique seed for random-dependent systems in this context */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
+	int32 RandomSeed = 0;
+
 	/** Helper function to retrieve the spline component from the CircuitActor */
 	UFUNCTION(BlueprintCallable, Category = "Trainer")
 	USplineComponent* GetCircuitSpline() const;
@@ -36,6 +40,7 @@ public:
 	void InitializeSystemsFromConfig();
 
 protected:
+	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
