@@ -60,7 +60,9 @@ public:
 
 private:
 	UPROPERTY()
-	FTimerHandle DebugLogTimerHandle;
+	FTimerHandle UpdateTimerHandle;
+
+	void OnUpdate();
 
 	void LogEliteFitness();
 

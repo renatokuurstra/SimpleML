@@ -36,15 +36,20 @@ void AVehicleTrainerManager::BeginPlay()
 		}
 	}
 
-	if (TrainerConfig != nullptr && TrainerConfig->bDebugInfo)
+	if (TrainerConfig != nullptr)
 	{
-		GetWorldTimerManager().SetTimer(DebugLogTimerHandle, this, &AVehicleTrainerManager::LogEliteFitness, TrainerConfig->DebugLogFrequency, true);
+		GetWorldTimerManager().SetTimer(UpdateTimerHandle, this, &AVehicleTrainerManager::OnUpdate, TrainerConfig->DebugLogFrequency, true);
 	}
 }
 
 void AVehicleTrainerManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+}
+
+void AVehicleTrainerManager::OnUpdate()
+{
+	LogEliteFitness();
 	UpdateDebugWidget();
 	CheckForStalenessAndNuke();
 }
@@ -216,9 +221,15 @@ void AVehicleTrainerManager::CheckForStalenessAndNuke()
 				ContextBestElite = E;
 			}
 		}
+		
+		// Special case: if no elites yet, fitness is 0
+		if (ContextBestFitness < 0) ContextBestFitness = 0.0f;
+
+		UE_LOG(LogTemp, Verbose, TEXT("[AVehicleTrainerManager] Context %s best fitness: %.2f (Elite: %u)"), 
+			*Context->GetName(), ContextBestFitness, (uint32)ContextBestElite);
 
 		// Update global best
-		if (ContextBestElite != entt::null && ContextBestFitness > BestOverallFitness)
+		if (ContextBestElite != entt::null && ContextBestFitness >= BestOverallFitness)
 		{
 			BestOverallFitness = ContextBestFitness;
 			BestOverallContext = Context;
@@ -228,6 +239,7 @@ void AVehicleTrainerManager::CheckForStalenessAndNuke()
 		// Check for staleness
 		if (CurrentTime < Context->NextNukeAvailableTime)
 		{
+			UE_LOG(LogTemp, Verbose, TEXT("[AVehicleTrainerManager] Context %s on cooldown. Next available in %.1fs"), *Context->GetName(), Context->NextNukeAvailableTime - CurrentTime);
 			continue;
 		}
 
@@ -239,6 +251,8 @@ void AVehicleTrainerManager::CheckForStalenessAndNuke()
 
 		if (History.Num() < TrainerConfig->MinHistoryForStaleness)
 		{
+			UE_LOG(LogTemp, Verbose, TEXT("[AVehicleTrainerManager] Context %s has insufficient history: %d/%d"), 
+				*Context->GetName(), History.Num(), TrainerConfig->MinHistoryForStaleness);
 			continue;
 		}
 
@@ -258,6 +272,9 @@ void AVehicleTrainerManager::CheckForStalenessAndNuke()
 
 		float Improvement = (NewMean - OldMean) / FMath::Max(FMath::Abs(OldMean), 1e-6f);
 
+		UE_LOG(LogTemp, Verbose, TEXT("[AVehicleTrainerManager] Context %s: MeanOld: %.2f, MeanNew: %.2f, Improvement: %.4f (Threshold: %.4f)"), 
+			*Context->GetName(), OldMean, NewMean, Improvement, TrainerConfig->StalenessThreshold);
+
 		if (Improvement < TrainerConfig->StalenessThreshold)
 		{
 			// This context is stale. Is it the worst?
@@ -267,11 +284,41 @@ void AVehicleTrainerManager::CheckForStalenessAndNuke()
 				WorstStaleContext = Context;
 			}
 		}
+		else
+		{
+			UE_LOG(LogTemp, Verbose, TEXT("[AVehicleTrainerManager] Context %s not stale. Improvement: %.4f (Threshold: %.4f)"), 
+				*Context->GetName(), Improvement, TrainerConfig->StalenessThreshold);
+		}
 	}
 
-	// Perform Nuke if we have a target and a pioneer
-	if (WorstStaleContext && BestEliteEntity != entt::null && WorstStaleContext != BestOverallContext)
+	if (!WorstStaleContext)
 	{
+		UE_LOG(LogTemp, Verbose, TEXT("[AVehicleTrainerManager] No stale context found."));
+		return;
+	}
+
+	if (WorstStaleContext)
+	{
+		if (BestEliteEntity == entt::null)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[AVehicleTrainerManager] WorstStaleContext %s found, but BestEliteEntity is null. Cannot nuke."), *WorstStaleContext->GetName());
+			return;
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("[AVehicleTrainerManager] Evaluating nuke for WorstStaleContext: %s, BestEliteEntity: %u"), 
+			*WorstStaleContext->GetName(), (uint32)BestEliteEntity);
+		
+		// Even if it's the best overall, if it's stale and we have no other options, we might not nuke.
+		// BUT if there's only one context, we can't nuke (needs pioneer).
+		// If there are multiple, and the best one is stale... that's a problem.
+		// The requirement was: "simulation is stale and it's the worst config".
+		
+		if (WorstStaleContext == BestOverallContext)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[AVehicleTrainerManager] Worst stale context %s is also the best overall context. Cannot nuke without a better pioneer."), *WorstStaleContext->GetName());
+			return;
+		}
+
 		UE_LOG(LogTemp, Warning, TEXT("[AVehicleTrainerManager] Nuking stale context: %s. Best Fitness: %.2f. Pioneering from %s (Fitness: %.2f)"), 
 			*WorstStaleContext->GetName(), WorstStaleFitness, *BestOverallContext->GetName(), BestOverallFitness);
 

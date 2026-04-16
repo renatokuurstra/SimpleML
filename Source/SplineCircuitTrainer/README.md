@@ -62,7 +62,8 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
   - `StalenessCooldown`: Time (in seconds) to wait after a nuke before evaluating again.
   - `MinHistoryForStaleness`: Minimum number of historical values (e.g., 50) required before checking for staleness.
 - `Debug`:
-  - `bDebugInfo`: Enables debug visualizations (e.g., spheres when vehicles are reset).
+  - `DebugLogFrequency`: Frequency of the manager's update loop (in seconds). This controls the debug log, UI updates, and the staleness/nuke checks.
+  - `bDebugInfo`: Enables debug visualizations and logs.
 
 ### FTrainingDataComponent
 - `DistanceTraveled`: Total distance along the spline.
