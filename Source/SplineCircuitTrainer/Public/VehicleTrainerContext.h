@@ -35,6 +35,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	int32 ContextIndex = -1;
 
+	/** Next time this context is eligible for a nuke operation. */
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Trainer")
+	float NextNukeAvailableTime = 0.0f;
+
 	/** Helper function to retrieve the spline component from the CircuitActor */
 	UFUNCTION(BlueprintCallable, Category = "Trainer")
 	USplineComponent* GetCircuitSpline() const;

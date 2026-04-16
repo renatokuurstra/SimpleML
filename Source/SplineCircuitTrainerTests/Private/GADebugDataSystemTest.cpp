@@ -68,10 +68,12 @@ TEST_CLASS(GeneticAlgorithm_Debug_Tests, "GeneticAlgorithm.Debug")
 		Pair.ParentB = (uint32)ParentB;
 		Registry.emplace<FBreedingPairComponent>(PairEntity, Pair);
 
-		// 4. Run system
+		// 4. Run system multiple times to check history
 		UGADebugDataSystem* DebugSystem = NewObject<UGADebugDataSystem>();
 		DebugSystem->Initialize_Implementation(Context);
-		DebugSystem->Update_Implementation(0.1f);
+		
+		// History records every 1 second by default. Run for 1.1s.
+		DebugSystem->Update_Implementation(1.1f);
 
 		// Verify
 		const auto& DebugComp = Registry.get<FGeneticAlgorithmDebugComponent>(DebugEntity);
@@ -84,5 +86,12 @@ TEST_CLASS(GeneticAlgorithm_Debug_Tests, "GeneticAlgorithm.Debug")
 		ASSERT_THAT(AreEqual(2, DebugComp.BreedingPairsFitness.Num(), "BreedingPairsFitness should have 2 entries (1 pair)"));
 		ASSERT_THAT(IsNear(50.0f, DebugComp.BreedingPairsFitness[0], 0.01f, "Parent A fitness should be near 50"));
 		ASSERT_THAT(IsNear(60.0f, DebugComp.BreedingPairsFitness[1], 0.01f, "Parent B fitness should be near 60"));
+
+		ASSERT_THAT(AreEqual(1, DebugComp.HistoricalTotalEliteFitness.Num(), "History Total should have 1 entry after 1.1s"));
+		ASSERT_THAT(IsNear(300.0f, DebugComp.HistoricalTotalEliteFitness[0], 0.01f, "Historical total fitness should be sum of elites (100+200)"));
+
+		// Run for another 1s
+		DebugSystem->Update_Implementation(1.0f);
+		ASSERT_THAT(AreEqual(2, DebugComp.HistoricalTotalEliteFitness.Num(), "History Total should have 2 entries after another 1s"));
 	}
 };

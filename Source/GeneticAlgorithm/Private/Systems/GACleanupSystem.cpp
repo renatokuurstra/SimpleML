@@ -15,8 +15,8 @@ void UGACleanupSystem::Update_Implementation(float /*DeltaTime*/)
         }
     }
 
-    // 2) Remove FResetGenomeComponent from all entities so user can re-apply next generation
-    // Also remove FEligibleForBreedingTagComponent so it must be re-evaluated each generation if needed
+    // 2) Remove FResetGenomeComponent from all entities so user can re-apply them in the next cycle/generation.
+    // Also remove FEligibleForBreedingTagComponent so it must be re-evaluated each cycle if needed.
     {
         auto ResetView = GetView<FResetGenomeComponent>();
         for (auto Entity : ResetView)

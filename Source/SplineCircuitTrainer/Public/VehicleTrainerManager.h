@@ -4,10 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Blueprint/UserWidget.h"
+#include "UI/VehicleTrainerDebugWidget.h"
 #include "VehicleTrainerManager.generated.h"
 
 class AVehicleTrainerContext;
 class UVehicleTrainerConfig;
+class UVehicleTrainerDebugWidget;
 
 /**
  * AVehicleTrainerManager
@@ -20,6 +23,8 @@ class SPLINECIRCUITTRAINER_API AVehicleTrainerManager : public AActor
 
 public:
 	AVehicleTrainerManager();
+
+	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override { return false; }
 
 	/** Configuration used for each context */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
@@ -39,12 +44,34 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
 
+public:
 	/** Spawns and initializes all contexts */
 	UFUNCTION(BlueprintCallable, Category = "Trainer")
 	void SpawnContexts();
 
+	/** Toggle debug UI visibility */
+	UFUNCTION()
+	void ToggleDebugUI();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer|Debug")
+	TSubclassOf<UVehicleTrainerDebugWidget> DebugWidgetClass;
+
 private:
 	UPROPERTY()
+	FTimerHandle DebugLogTimerHandle;
+
+	void LogEliteFitness();
+
+	UPROPERTY()
 	TArray<TObjectPtr<AVehicleTrainerContext>> Contexts;
+
+	UPROPERTY()
+	TObjectPtr<UVehicleTrainerDebugWidget> DebugWidget;
+
+	void UpdateDebugWidget();
+
+	/** Checks each context for staleness and performs a nuke if necessary. */
+	void CheckForStalenessAndNuke();
 };

@@ -27,33 +27,53 @@ void UGADebugDataSystem::Update_Implementation(float DeltaTime)
 	entt::entity DebugEntity = *DebugView.begin();
 	FGeneticAlgorithmDebugComponent& DebugComp = DebugView.get<FGeneticAlgorithmDebugComponent>(DebugEntity);
 
-	// 1. Reset Count
+	// Try to get max history length from context/config if available
+	// Since we are in GeneticAlgorithm module, we don't know about VehicleTrainerConfig.
+	// We'll rely on the value already set in DebugComp or a default.
+
+	// 1. Reset Count & Iteration Detection
 	auto ResetView = GetView<FResetGenomeComponent>();
+	int32 CurrentResetCount = 0;
 	if (ResetView.begin() != ResetView.end())
 	{
-		int32 ResetCount = 0;
-		for (auto E : ResetView) { ResetCount++; }
-		DebugComp.ResetCount = ResetCount;
+		for (auto E : ResetView) { CurrentResetCount++; }
 	}
+	DebugComp.ResetCount = CurrentResetCount;
 
-	// 2. Elite Info
+	// 2. Elite Info & Historical Fitness
 	auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent>();
+	float CurrentEliteTotalFitness = 0.0f;
 	if (EliteView.begin() != EliteView.end())
 	{
 		int32 EliteCount = 0;
-		for (auto E : EliteView) { EliteCount++; }
-		DebugComp.EliteCount = EliteCount;
 		DebugComp.EliteFitness.Reset();
 		for (auto E : EliteView)
 		{
+			EliteCount++;
 			const auto& Fit = EliteView.get<FFitnessComponent>(E);
 			if (Fit.Fitness.Num() > 0)
 			{
-				// Assuming first fitness value is the primary one for visualization
-				DebugComp.EliteFitness.Add(Fit.Fitness[0]);
+				float Val = Fit.Fitness[0];
+				DebugComp.EliteFitness.Add(Val);
+				CurrentEliteTotalFitness += Val;
 			}
 		}
+		DebugComp.EliteCount = EliteCount;
 		DebugComp.EliteFitness.Sort(TGreater<float>());
+	}
+	
+	// Record historical elite fitness periodically
+	SampleTimer += DeltaTime;
+	if (SampleTimer >= SampleInterval)
+	{
+		SampleTimer = 0.0f;
+		
+		// Record Total
+		DebugComp.HistoricalTotalEliteFitness.Add(CurrentEliteTotalFitness);
+		if (DebugComp.HistoricalTotalEliteFitness.Num() > DebugComp.MaxHistoryLength)
+		{
+			DebugComp.HistoricalTotalEliteFitness.RemoveAt(0);
+		}
 	}
 
 	// 3. Breeding Pairs Info
@@ -91,18 +111,18 @@ void UGADebugDataSystem::Update_Implementation(float DeltaTime)
 	}
 
 	// 4. All Solutions Fitness
-	auto PopView = Registry.view<FFitnessComponent>(entt::exclude_t<FEliteTagComponent>{});
-	if (PopView.begin() != PopView.end())
+	auto PopView = Registry.view<FFitnessComponent>();
+	DebugComp.AllSolutionsFitness.Reset();
+
+	for (auto E : PopView)
 	{
-		DebugComp.AllSolutionsFitness.Reset();
-		for (auto E : PopView)
+		const auto& Fit = PopView.get<FFitnessComponent>(E);
+		float CurrentFit = (Fit.Fitness.Num() > 0) ? Fit.Fitness[0] : 0.0f;
+		
+		if (!Registry.any_of<FEliteTagComponent>(E))
 		{
-			const auto& Fit = PopView.get<FFitnessComponent>(E);
-			if (Fit.Fitness.Num() > 0)
-			{
-				DebugComp.AllSolutionsFitness.Add(Fit.Fitness[0]);
-			}
+			DebugComp.AllSolutionsFitness.Add(CurrentFit);
 		}
-		DebugComp.AllSolutionsFitness.Sort(TGreater<float>());
 	}
+	DebugComp.AllSolutionsFitness.Sort(TGreater<float>());
 }

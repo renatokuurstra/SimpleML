@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "EcsSystem.h"
+#include "Components/GenomeComponents.h"
 #include "GADebugDataSystem.generated.h"
 
 /**
@@ -18,4 +19,8 @@ public:
 	UGADebugDataSystem();
 
 	virtual void Update_Implementation(float DeltaTime) override;
+
+private:
+	float SampleTimer = 0.0f;
+	float SampleInterval = 1.0f; // Sample once per second
 };

@@ -141,6 +141,28 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
 	bool bDebugInfo = false;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
+	int32 FitnessHistoryLength = 50;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
+	float DebugLogFrequency = 1.0f;
+
+	/** Global toggle for the nuke system. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Nuke")
+	bool bEnableNuke = true;
+
+	/** The minimum relative improvement required to consider a context "active." */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Nuke")
+	float StalenessThreshold = 0.01f;
+
+	/** Time to wait after a nuke before evaluating staleness again for that context. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Nuke")
+	float StalenessCooldown = 50.0f;
+
+	/** Minimum number of historical values required before staleness check. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Nuke")
+	int32 MinHistoryForStaleness = 50;
+
 	UFUNCTION(BlueprintCallable, Category = "Genetic Algorithm")
 	TArray<FName> GetResetReasonOptions() const;
 };

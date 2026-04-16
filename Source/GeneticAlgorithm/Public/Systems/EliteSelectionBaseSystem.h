@@ -189,86 +189,92 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 					return Bucket[A].Order < Bucket[B].Order;
 				});
 
-				// We compare current elites against new candidates.
-				// Since ElitePool is sorted, and Bucket[IndexScratch] is sorted,
-				// we can merge them or just see if the best candidates beat the worst elites.
-				
+				// 1. Combine current elites and candidates into a single pool.
+				struct FPotentialElite
+				{
+					float Fitness = 0.0f;
+					entt::entity SourceEntity = entt::null; // null if it's already an elite
+					entt::entity ExistingEliteEntity = entt::null; // if it's already an elite
+				};
+
+				TArray<FPotentialElite> PotentialElites;
+				PotentialElites.Reserve(ElitePool.Num() + Bucket.Num());
+
+				// Add current elites to potential pool
+				for (entt::entity EliteE : ElitePool)
+				{
+					FPotentialElite PE;
+					PE.Fitness = Registry.get<FFitnessComponent>(EliteE).Fitness[FitnessIndex];
+					PE.ExistingEliteEntity = EliteE;
+					PotentialElites.Add(PE);
+				}
+
+				// Add candidates to potential pool
 				for (int32 i = 0; i < IndexScratch.Num(); ++i)
 				{
 					const FEntityFitness& Candidate = Bucket[IndexScratch[i]];
+					FPotentialElite PE;
+					PE.Fitness = Candidate.Value;
+					PE.SourceEntity = Candidate.Entity;
+					PotentialElites.Add(PE);
+				}
+
+				// 2. Sort the potential pool
+				PotentialElites.Sort([this](const FPotentialElite& A, const FPotentialElite& B)
+				{
+					if (bHigherIsBetter)
+					{
+						return A.Fitness > B.Fitness;
+					}
+					return A.Fitness < B.Fitness;
+				});
+
+				// 3. Take top N and update ElitePool
+				TArray<entt::entity> NewEliteEntities;
+				NewEliteEntities.Reserve(EliteCount);
+				
+				TArray<int32> WinningPEIndices;
+				WinningPEIndices.Reserve(EliteCount);
+
+				int32 PEIdx = 0;
+				while (WinningPEIndices.Num() < EliteCount && PEIdx < PotentialElites.Num())
+				{
+					WinningPEIndices.Add(PEIdx);
+					if (PotentialElites[PEIdx].ExistingEliteEntity != entt::null)
+					{
+						NewEliteEntities.Add(PotentialElites[PEIdx].ExistingEliteEntity);
+					}
+					PEIdx++;
+				}
+
+				// Repurposing logic:
+				TArray<entt::entity> ElitesToRepurpose;
+				for (entt::entity E : ElitePool)
+				{
+					if (!NewEliteEntities.Contains(E))
+					{
+						ElitesToRepurpose.Add(E);
+					}
+				}
+
+				int32 RepurposeIdx = 0;
+				for (int32 i = 0; i < WinningPEIndices.Num(); ++i)
+				{
+					int32 WinnerIdx = WinningPEIndices[i];
+					FPotentialElite& PE = PotentialElites[WinnerIdx];
 					
-					// Find the worst elite to potentially replace
-					int32 WorstEliteIdx = -1;
-					float WorstFitness = bHigherIsBetter ? MAX_FLT : -MAX_FLT;
-
-					for(int32 e = 0; e < ElitePool.Num(); ++e)
+					if (PE.ExistingEliteEntity != entt::null)
 					{
-						const float EliteFitVal = Registry.get<FFitnessComponent>(ElitePool[e]).Fitness[FitnessIndex];
-						if (bHigherIsBetter)
-						{
-							if (EliteFitVal < WorstFitness)
-							{
-								WorstFitness = EliteFitVal;
-								WorstEliteIdx = e;
-							}
-						}
-						else
-						{
-							if (EliteFitVal > WorstFitness)
-							{
-								WorstFitness = EliteFitVal;
-								WorstEliteIdx = e;
-							}
-						}
+						Registry.get<FFitnessComponent>(PE.ExistingEliteEntity).EliteIndex = i;
 					}
-
-					if (WorstEliteIdx != -1)
+					else
 					{
-						bool bIsBetter = bHigherIsBetter ? (Candidate.Value > WorstFitness) : (Candidate.Value < WorstFitness);
-						if (bIsBetter)
-						{
-							const entt::entity EliteE = ElitePool[WorstEliteIdx];
-							FFitnessComponent& EliteFit = Registry.get<FFitnessComponent>(EliteE);
-							
-							// Overwrite worst elite with new candidate
-							if (EliteFit.Fitness.Num() < FitnessIndex + 1)
-							{
-								EliteFit.Fitness.SetNum(FitnessIndex + 1, EAllowShrinking::No);
-							}
-							EliteFit.Fitness[FitnessIndex] = Candidate.Value;
-							EliteFit.BuiltForFitnessIndex = FitnessIndex;
-							
-							CopyGenomeToElite(Candidate.Entity, EliteE, FitnessIndex);
-						}
-						else
-						{
-							// Since candidates are sorted, if this one isn't better than the worst elite,
-							// subsequent ones won't be either (at least not in a way that matters for top-N).
-							// Wait, that's not entirely true if we have multiple elites to replace.
-							// Actually, if Candidate[i] is NOT better than the worst elite, then Candidate[i+1] (which is worse than Candidate[i])
-							// certainly won't be better than the worst elite.
-							break;
-						}
-					}
-
-					// Batch-fill any elite slot still at placeholder fitness with the best candidate.
-					// This ensures the first valid solution immediately seeds every elite slot so all
-					// slots are usable as breeding parents from the very next generation.
-					if (IndexScratch.Num() > 0)
-					{
-						const FEntityFitness& BestCandidate = Bucket[IndexScratch[0]];
-						const float PlaceholderFitness = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
-						for (entt::entity EliteE : ElitePool)
-						{
-							const float EliteFitVal = Registry.get<FFitnessComponent>(EliteE).Fitness[FitnessIndex];
-							if (EliteFitVal == PlaceholderFitness)
-							{
-								FFitnessComponent& EliteFit = Registry.get<FFitnessComponent>(EliteE);
-								EliteFit.Fitness[FitnessIndex] = BestCandidate.Value;
-								EliteFit.BuiltForFitnessIndex = FitnessIndex;
-								CopyGenomeToElite(BestCandidate.Entity, EliteE, FitnessIndex);
-							}
-						}
+						entt::entity TargetElite = ElitesToRepurpose[RepurposeIdx++];
+						FFitnessComponent& EliteFit = Registry.get<FFitnessComponent>(TargetElite);
+						EliteFit.Fitness[FitnessIndex] = PE.Fitness;
+						EliteFit.BuiltForFitnessIndex = FitnessIndex;
+						EliteFit.EliteIndex = i;
+						CopyGenomeToElite(PE.SourceEntity, TargetElite, FitnessIndex);
 					}
 				}
 			}

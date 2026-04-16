@@ -8,15 +8,19 @@ Plugin for training vehicles on spline-based circuits using ECS and Neural Netwo
 - [API](#api)
 - [Genetic Algorithm Integration](#genetic-algorithm-integration)
 
+The `SplineCircuitTrainer` uses a **Steady-State Genetic Algorithm** model. Unlike classic generational GAs, vehicles are evaluated over their lifetime and reset based on performance triggers or completion of evaluation cycles, rather than resetting the entire population at once. This ensures a more stable learning process for the neural network drivers.
+
+While the underlying `GeneticAlgorithm` module supports both steady-state and generational models, this trainer is specifically configured for steady-state operation to handle the continuous nature of the vehicle simulation.
+
 ## Intentions
-This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a population of vehicles, evaluate their performance via neural networks, and evolve them using a Genetic Algorithm (GA).
+This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a population of vehicles, evaluate their performance via neural networks, and evolve them using a **steady-state Genetic Algorithm**.
 
 ## Basic Usage
 1. Create a `UVehicleTrainerConfig` Data Asset.
 2. Set up the population size, hidden layers, and GA parameters.
 3. Spawn `AVehicleTrainerContext` in your level.
 4. Assign the config and a `CircuitActor` (with a Spline Component).
-5. Call `NextGeneration()` to evolve the population when they reach the end of a trial.
+5. The simulation runs continuously; entities are reset and evolved asynchronously based on performance-based triggers (e.g., timeout, off-track, or low velocity).
 
 ## API
 ### AVehicleTrainerManager
@@ -52,6 +56,11 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
 - `Genetic Algorithm|Fitness Eligibility`:
   - `MinBreedAge`: Minimum age in seconds before an entity is eligible for fitness scoring and breeding.
   - `HighestFitnessFactor`: Percentage (0.0 - 1.0) of the highest fitness overall required for fitness eligibility.
+- `Genetic Algorithm|Nuke`:
+  - `bEnableNuke`: Global toggle for the context nuke system.
+  - `StalenessThreshold`: Minimum relative improvement (e.g., 0.01 for 1%) to avoid being marked as stale.
+  - `StalenessCooldown`: Time (in seconds) to wait after a nuke before evaluating again.
+  - `MinHistoryForStaleness`: Minimum number of historical values (e.g., 50) required before checking for staleness.
 - `Debug`:
   - `bDebugInfo`: Enables debug visualizations (e.g., spheres when vehicles are reset).
 
@@ -62,19 +71,19 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
 - `CreationTime`: World time when the vehicle was spawned.
 
 ## Genetic Algorithm Integration
-The trainer uses the following ECS systems in the `NewGeneration` event:
+The trainer uses the following ECS systems to manage the steady-state evolution:
 - `UVehicleProgressSystem`: Evaluates vehicle distance along the circuit spline.
 - `UVehicleResetFlagSystem`: Flags vehicles for reset if they go off-track or stop making progress.
 - `UVehicleFitnessEligibilitySystem`: Manages adding `FEligibleForBreedingTagComponent` based on fitness and highest fitness factor. This tag determines which entities can be sampled as parents by the selection system. Elites are always eligible.
 - `UVehicleFitnessSystem`: Accumulates fitness for all entities based on the distance traveled.
 - `UEliteSelectionFloatSystem`: Selects top N eligible entities as elites.
-- `UTournamentSelectionSystem`: Selects parents for the next generation from eligible entities and elites.
+- `UTournamentSelectionSystem`: Selects parents for the next iteration from eligible entities and elites.
 - `UBreedFloatGenomesSystem`: Creates offspring via crossover.
 - `UMutationFloatGenomeSystem`: Applies random variations to offspring.
-- `UVehicleResetSystem`: Physically resets vehicles flagged for reset back to the start and resets their fitness.
+- `UVehicleResetSystem`: Physically resets vehicles flagged for reset back to the start and resets their fitness, effectively replacing the individual in the steady-state pool.
 - `UGACleanupSystem`: Removes transient GA components and the eligibility tag for the next cycle.
-- `UGADebugDataSystem`: Collects GA information for visualization (runs during `NewGeneration`).
-- `UVehicleTrainerDebugSystem`: Visualizes the collected debug information using SlateIM. This system runs every frame in the `PostUpdate` event to ensure the standalone debug window remains active and responsive.
+- `UGADebugDataSystem`: Collects GA information for visualization.
+- `UVehicleTrainerDebugSystem`: Visualizes the collected debug information via the manager's widget.
 
 ### Debug Visualization
 When `bDebugInfo` is enabled in the `UVehicleTrainerConfig`, a debug panel is displayed in the viewport using **SlateIM**.

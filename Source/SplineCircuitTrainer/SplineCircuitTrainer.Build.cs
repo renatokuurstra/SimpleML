@@ -18,6 +18,8 @@ public class SplineCircuitTrainer : ModuleRules
             "SimpleMLInterfaces",
             "GeneticAlgorithm",
             "AIModule",
+            "InputCore",
+            "UMG",
             "SlateIM",
             "Slate",
             "SlateCore",

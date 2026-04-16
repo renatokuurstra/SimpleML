@@ -49,6 +49,11 @@ struct GENETICALGORITHM_API FFitnessComponent
 	// Index of the fitness dimension this entity was built/optimized for. -1 means no specific index.
 	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm")
 	int32 BuiltForFitnessIndex = -1;
+
+	// For elites: tracks which elite index this solution was added to. -1 means not an elite.
+	// This helps us avoid adding the same solution multiple times to the elite pool.
+	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm")
+	int32 EliteIndex = -1;
 };
 
 /**
@@ -75,10 +80,6 @@ struct GENETICALGORITHM_API FEligibleForBreedingTagComponent
 	GENERATED_BODY()
 };
 
-/**
- * Debug information component for GeneticAlgorithm module.
- * Stores summarized data for visualization.
- */
 USTRUCT(BlueprintType)
 struct GENETICALGORITHM_API FGeneticAlgorithmDebugComponent
 {
@@ -98,4 +99,10 @@ struct GENETICALGORITHM_API FGeneticAlgorithmDebugComponent
 
 	UPROPERTY(EditAnywhere, Category = "GeneticAlgorithm|Debug")
 	int32 ResetCount = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Debug")
+	TArray<float> HistoricalTotalEliteFitness;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Debug")
+	int32 MaxHistoryLength = 50;
 };

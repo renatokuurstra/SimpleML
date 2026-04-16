@@ -42,9 +42,9 @@ SimpleML currently provides the following modules:
 - `SimpleMLInterfaces` (Runtime): Minimal interfaces for ML-controlled entities.
 - `SimpleML` (Runtime): Base module for shared ML scaffolding (Neural Networks, Activation functions).
 - `SimpleMLTests` (Developer): Tests for the SimpleML module.
-- `GeneticAlgorithm` (Runtime): Systems and components for genome representation, breeding, selection, and mutation.
+- `GeneticAlgorithm` (Runtime): A flexible module for genome representation, breeding, selection, and mutation, supporting both **Steady-State** and **Generational** Genetic Algorithms.
 - `GeneticAlgorithmTests` (Developer): Test/experimental code that depends on `GeneticAlgorithm`.
-- `SplineCircuitTrainer` (Runtime): ECS context for training vehicles on a spline circuit.
+- `SplineCircuitTrainer` (Runtime): ECS context for training vehicles on a spline circuit using a **Steady-State GA**.
 - `SplineCircuitTrainerTests` (Developer): Tests for the SplineCircuitTrainer module.
 
 ## Usage Basics
@@ -78,9 +78,10 @@ Key headers (under `Plugins/SimpleML/Source/GeneticAlgorithm/Public`):
   - `Systems/MutationCharGenomeSystem.h`
 
   ### SplineCircuitTrainer
-  - `AVehicleTrainerManager`: Actor that manages multiple independent `AVehicleTrainerContext` instances. It spawns and initializes them using a shared `UVehicleTrainerConfig` and `CircuitActor`.
+  - `AVehicleTrainerManager`: Actor that manages multiple independent `AVehicleTrainerContext` instances. It spawns and initializes them using a shared `UVehicleTrainerConfig` and `CircuitActor`. It also manages the Debug UI widget (toggled with 'H').
   - `AVehicleTrainerContext`: ECS context (AEcsContext) with references to an actor with a spline circuit and a trainer configuration. Each context is independent and maintains its own EnTT registry.
-  - `UVehicleTrainerConfig`: Data asset holding trainer settings. It automatically manages the neural network structure based on inputs (spline distance, velocity, future path, recurrence) and hidden layer configuration. Includes `SpawnVerticalOffset` for positioning vehicles, `MinAverageVelocity` (cm/s) and `MinAgeForReset` (seconds) for performance-based reset logic.
+  - `UVehicleTrainerConfig`: Data asset holding trainer settings. It automatically manages the neural network structure based on inputs (spline distance, velocity, future path, recurrence) and hidden layer configuration. Includes `SpawnVerticalOffset` for positioning vehicles, `MinAverageVelocity` (cm/s) and `MinAgeForReset` (seconds) for performance-based reset logic. Includes `bDebugInfo` and `FitnessHistoryLength` for visualization.
+  - `UVehicleTrainerDebugWidget`: C++ base class for the UMG debug widget. Provides `DrawLineGraph` helper and `UpdateContextData` event.
   - `UVehicleEntityFactory`: ECS system that spawns pawns and creates entities. It initializes the neural network based on `UVehicleTrainerConfig` parameters and sets the `CreationTime` for performance tracking.
   - `UVehicleNNInputSystem`: ECS system that generates inputs for the neural network based on vehicle position relative to the spline, velocity, and previous outputs (recurrence).
   - `UVehicleProgressSystem`: ECS system that evaluates the progress of vehicle pawns along a spline, handling looped splines and forward/backward movement.
