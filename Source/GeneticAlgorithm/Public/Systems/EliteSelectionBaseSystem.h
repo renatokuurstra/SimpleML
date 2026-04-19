@@ -22,8 +22,8 @@
  */
 UCLASS(Abstract, BlueprintType, Blueprintable, EditInlineNew)
 class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
-	{
-		GENERATED_BODY()
+{
+	GENERATED_BODY()
 		
 	public:
 		UEliteSelectionBaseSystem();
@@ -147,29 +147,58 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 			{
 				const FFitnessComponent& Fit = SourceView.get<FFitnessComponent>(Entity);
 				if (!IsCandidate(Entity, Fit)) { ++CurrentOrder; continue; }
-				const int32 Dims = Fit.Fitness.Num();
-				if (SelectionBuckets.Num() < Dims) { SelectionBuckets.SetNum(Dims); }
-				for (int32 idx = 0; idx < Dims; ++idx)
-				{
-					TArray<FEntityFitness>& Bucket = SelectionBuckets[idx];
-					FEntityFitness& Entry = Bucket.Emplace_GetRef();
-					Entry.Value = Fit.Fitness[idx];
-					Entry.Order = CurrentOrder;
-					Entry.Entity = Entity;
-				}
+				
+				const int32 FitnessIndex = Fit.BuiltForFitnessIndex;
+				if (FitnessIndex < 0) { ++CurrentOrder; continue; }
+
+				if (SelectionBuckets.Num() <= FitnessIndex) { SelectionBuckets.SetNum(FitnessIndex + 1); }
+				
+				TArray<FEntityFitness>& Bucket = SelectionBuckets[FitnessIndex];
+				FEntityFitness& Entry = Bucket.Emplace_GetRef();
+				Entry.Value = (Fit.Fitness.Num() > FitnessIndex) ? Fit.Fitness[FitnessIndex] : 0.0f;
+				Entry.Order = CurrentOrder;
+				Entry.Entity = Entity;
+				
 				++CurrentOrder;
 			}
 		
 			// For each fitness index, maintain and update elites
-			for (int32 FitnessIndex = 0; FitnessIndex < SelectionBuckets.Num(); ++FitnessIndex)
+			TMap<int32, float> TotalEliteFitnessPerPop;
+			
+			// Find max population index in registry
+			int32 MaxPopIndex = -1;
+			auto AllFitView = Registry.view<FFitnessComponent>();
+			for (auto E : AllFitView)
 			{
-				TArray<FEntityFitness>& Bucket = SelectionBuckets[FitnessIndex];
+				MaxPopIndex = FMath::Max(MaxPopIndex, AllFitView.get<FFitnessComponent>(E).BuiltForFitnessIndex);
+			}
+
+			for (int32 FitnessIndex = 0; FitnessIndex <= MaxPopIndex; ++FitnessIndex)
+			{
+				TArray<FEntityFitness> EmptyBucket;
+				TArray<FEntityFitness>& Bucket = SelectionBuckets.IsValidIndex(FitnessIndex) ? SelectionBuckets[FitnessIndex] : EmptyBucket;
 				
 				// Ensure we have the desired number of elite entities for this index
 				TArray<entt::entity> ElitePool;
 				GatherElitePool(FitnessIndex, EliteCount, ElitePool);
 				
-				if (Bucket.Num() == 0) { continue; }
+				if (Bucket.Num() == 0) 
+				{
+					// If no candidates, still track elite fitness
+					float TotalEliteFitness = 0.0f;
+					for (entt::entity EliteE : ElitePool)
+					{
+						float Val = Registry.get<FFitnessComponent>(EliteE).Fitness[FitnessIndex];
+						// Avoid adding -inf or neutral values to total if it's the uninitialized elite
+						float NeutralVal = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
+						if (Val != NeutralVal)
+						{
+							TotalEliteFitness += Val;
+						}
+					}
+					TotalEliteFitnessPerPop.Add(FitnessIndex, TotalEliteFitness);
+					continue;
+				}
 
 				// Sort candidates
 				IndexScratch.Reset(Bucket.Num());
@@ -237,15 +266,22 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 				WinningPEIndices.Reserve(EliteCount);
 
 				int32 PEIdx = 0;
+				float TotalEliteFitness = 0.0f;
+				float NeutralVal = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
 				while (WinningPEIndices.Num() < EliteCount && PEIdx < PotentialElites.Num())
 				{
 					WinningPEIndices.Add(PEIdx);
+					if (PotentialElites[PEIdx].Fitness != NeutralVal)
+					{
+						TotalEliteFitness += PotentialElites[PEIdx].Fitness;
+					}
 					if (PotentialElites[PEIdx].ExistingEliteEntity != entt::null)
 					{
 						NewEliteEntities.Add(PotentialElites[PEIdx].ExistingEliteEntity);
 					}
 					PEIdx++;
 				}
+				TotalEliteFitnessPerPop.Add(FitnessIndex, TotalEliteFitness);
 
 				// Repurposing logic:
 				TArray<entt::entity> ElitesToRepurpose;
@@ -277,6 +313,14 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 						CopyGenomeToElite(PE.SourceEntity, TargetElite, FitnessIndex);
 					}
 				}
+			}
+
+			// Update debug component with elite fitness information
+			auto DebugView = Registry.view<FGeneticAlgorithmDebugComponent>();
+			for (auto DebugEntity : DebugView)
+			{
+				FGeneticAlgorithmDebugComponent& DebugComp = DebugView.get<FGeneticAlgorithmDebugComponent>(DebugEntity);
+				DebugComp.PopulationTotalEliteFitness = TotalEliteFitnessPerPop;
 			}
 		}
 	};

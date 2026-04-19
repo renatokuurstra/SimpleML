@@ -35,9 +35,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	int32 ContextIndex = -1;
 
-	/** Next time this context is eligible for a nuke operation. */
+	/** Next time a population is eligible for a nuke operation. Key is PopulationIndex. */
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Trainer")
-	float NextNukeAvailableTime = 0.0f;
+	TMap<int32, float> NextNukeAvailableTimePerPopulation;
 
 	/** Helper function to retrieve the spline component from the CircuitActor */
 	UFUNCTION(BlueprintCallable, Category = "Trainer")
@@ -46,6 +46,15 @@ public:
 	/** Forces re-initialization of systems from the current TrainerConfig */
 	UFUNCTION(BlueprintCallable, Category = "Trainer")
 	void InitializeSystemsFromConfig();
+
+	UFUNCTION(BlueprintCallable, Category = "Trainer")
+	void ToggleDebugUI();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+	TSubclassOf<class UVehicleTrainerDebugWidget> DebugWidgetClass;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "UI")
+	TObjectPtr<class UVehicleTrainerDebugWidget> DebugWidget;
 
 protected:
 	virtual void BeginPlay() override;

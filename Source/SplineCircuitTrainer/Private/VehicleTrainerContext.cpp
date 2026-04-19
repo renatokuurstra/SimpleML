@@ -17,12 +17,18 @@
 #include "Systems/BreedFloatGenomesSystem.h"
 #include "Systems/MutationFloatGenomeSystem.h"
 #include "Systems/VehicleResetSystem.h"
+#include "Systems/GAStalenessSystem.h"
 #include "Systems/GACleanupSystem.h"
 #include "Systems/GADebugDataSystem.h"
+#include "Systems/VehicleTrainerDebugSystem.h"
 #include "Components/GenomeComponents.h"
 
+#include "Blueprint/UserWidget.h"
+#include "UI/VehicleTrainerDebugWidget.h"
+#include "GameFramework/PlayerController.h"
+
 FName EvaluateNetworkEvent = FName("EvaluateNetworks");
-FName NewGenerationEvent = FName("NewGeneration");
+FName GAEvaluationEvent = FName("GAEvaluationEvent");
 
 AVehicleTrainerContext::AVehicleTrainerContext()
 {
@@ -45,12 +51,13 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	EvaluateEvent.bIsUpdateSystems = true;
 	EvaluateEvent.UpdateFreqSec = 0.1f;
 	
-	auto& GAEvent = EcsChainEvents.ChainEvents.FindOrAdd(NewGenerationEvent);
+	auto& GAEvent = EcsChainEvents.ChainEvents.FindOrAdd(GAEvaluationEvent);
 	
 	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleProgressSystem>("ProgressSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleResetFlagSystem>("ResetFlagSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleFitnessEligibilitySystem>("FitnessEligibilitySys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleFitnessSystem>("FitnessSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UGAStalenessSystem>("StalenessSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UEliteSelectionFloatSystem>("EliteSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UTournamentSelectionSystem>("SelectionSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UBreedFloatGenomesSystem>("BreedSys"));
@@ -58,6 +65,7 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleResetSystem>("ResetSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UGACleanupSystem>("CleanupSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UGADebugDataSystem>("GADebugDataSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleTrainerDebugSystem>("TrainerDebugSys"));
 	
 	GAEvent.bIsUpdateSystems = true;
 	GAEvent.UpdateFreqSec = 0.5f;
@@ -91,7 +99,7 @@ void AVehicleTrainerContext::InitializeSystemsFromConfig()
 	}
 
 	// Iterate through systems in NewGenerationEvent and EvaluateNetworkEvent to initialize parameters
-	TArray<FName> EventNames = { EvaluateNetworkEvent, NewGenerationEvent, FEcsChainEventNames::BeginPlay };
+	TArray<FName> EventNames = { EvaluateNetworkEvent, GAEvaluationEvent, FEcsChainEventNames::BeginPlay };
 	for (const FName& EventName : EventNames)
 	{
 		if (FChainEventData* EventData = EcsChainEvents.ChainEvents.Find(EventName))
@@ -101,13 +109,13 @@ void AVehicleTrainerContext::InitializeSystemsFromConfig()
 				if (UEliteSelectionFloatSystem* EliteSys = Cast<UEliteSelectionFloatSystem>(Element.GetInterface()))
 				{
 					EliteSys->EliteCount = TrainerConfig->EliteCount;
-					EliteSys->bHigherIsBetter = true;
+					EliteSys->bHigherIsBetter = TrainerConfig->bHigherIsBetter;
 				}
 				else if (UTournamentSelectionSystem* SelectionSys = Cast<UTournamentSelectionSystem>(Element.GetInterface()))
 				{
 					SelectionSys->TournamentSize = TrainerConfig->TournamentSize;
 					SelectionSys->SelectionPressure = TrainerConfig->SelectionPressure;
-					SelectionSys->bHigherIsBetter = true;
+					SelectionSys->bHigherIsBetter = TrainerConfig->bHigherIsBetter;
 					SelectionSys->ContextSeed = RandomSeed;
 				}
 				else if (UBreedFloatGenomesSystem* BreedSys = Cast<UBreedFloatGenomesSystem>(Element.GetInterface()))
@@ -124,6 +132,10 @@ void AVehicleTrainerContext::InitializeSystemsFromConfig()
 				{
 					InitSys->ContextSeed = RandomSeed;
 				}
+				else if (UGAStalenessSystem* StalenessSys = Cast<UGAStalenessSystem>(Element.GetInterface()))
+				{
+					// Staleness system uses config directly from context
+				}
 				else if (UVehicleEntityFactory* FactorySys = Cast<UVehicleEntityFactory>(Element.GetInterface()))
 				{
 					FactorySys->ContextIndex = ContextIndex;
@@ -137,6 +149,55 @@ void AVehicleTrainerContext::BeginPlay()
 {
 	InitializeSystemsFromConfig();
 	Super::BeginPlay();
+
+	// Pre-warm nuke cooldown so no population can be nuked immediately on startup
+	if (TrainerConfig)
+	{
+		const float NowTime = GetWorld()->GetTimeSeconds();
+		for (int32 i = 0; i < TrainerConfig->NumPopulations; ++i)
+		{
+			NextNukeAvailableTimePerPopulation.FindOrAdd(i) = NowTime + TrainerConfig->StalenessCooldown;
+		}
+	}
+
+	// Bind H key for toggling debug UI
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+	{
+		EnableInput(PC);
+		if (InputComponent)
+		{
+			InputComponent->BindKey(EKeys::H, IE_Pressed, this, &AVehicleTrainerContext::ToggleDebugUI);
+		}
+	}
+}
+
+void AVehicleTrainerContext::ToggleDebugUI()
+{
+	if (!DebugWidget)
+	{
+		if (DebugWidgetClass)
+		{
+			DebugWidget = CreateWidget<UVehicleTrainerDebugWidget>(GetWorld(), DebugWidgetClass);
+			if (DebugWidget)
+			{
+				DebugWidget->AddToViewport();
+				
+				// Initialize the widget with this context if needed
+				// For now just assume it finds the context it needs or we set it later
+			}
+		}
+	}
+	else
+	{
+		if (DebugWidget->IsVisible())
+		{
+			DebugWidget->SetVisibility(ESlateVisibility::Hidden);
+		}
+		else
+		{
+			DebugWidget->SetVisibility(ESlateVisibility::Visible);
+		}
+	}
 }
 
 void AVehicleTrainerContext::EndPlay(const EEndPlayReason::Type EndPlayReason)

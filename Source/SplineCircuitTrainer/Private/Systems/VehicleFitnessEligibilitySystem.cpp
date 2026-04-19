@@ -112,4 +112,34 @@ void UVehicleFitnessEligibilitySystem::Update_Implementation(float DeltaTime)
 			GetRegistry().emplace<FEligibleForBreedingTagComponent>(Entity);
 		}
 	}
+
+	// 4. Mark good non-reset, non-elite entities as eligible parents.
+	// Active vehicles performing well should be tournament candidates, not just elites.
+	auto ActiveView = GetRegistry().view<FTrainingDataComponent, FFitnessComponent>(
+		entt::exclude_t<FResetGenomeComponent, FEligibleForBreedingTagComponent, FEliteTagComponent>{});
+
+	for (auto Entity : ActiveView)
+	{
+		const FTrainingDataComponent& Data = ActiveView.get<FTrainingDataComponent>(Entity);
+		const FFitnessComponent& FitComp = ActiveView.get<FFitnessComponent>(Entity);
+
+		float Age = CurrentTime - Data.CreationTime;
+		if (Age < Config->MinBreedAge)
+		{
+			continue;
+		}
+
+		float EntityFitness = (FitComp.Fitness.Num() > 0) ? FitComp.Fitness[0] : -MAX_FLT;
+
+		bool bPassActive = true;
+		if (MaxFitness > -MAX_FLT)
+		{
+			bPassActive = (EntityFitness >= MaxFitness * Config->HighestFitnessFactor);
+		}
+
+		if (bPassActive)
+		{
+			GetRegistry().emplace<FEligibleForBreedingTagComponent>(Entity);
+		}
+	}
 }

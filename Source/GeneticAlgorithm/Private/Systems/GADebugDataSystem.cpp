@@ -43,6 +43,8 @@ void UGADebugDataSystem::Update_Implementation(float DeltaTime)
 	// 2. Elite Info & Historical Fitness
 	auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent>();
 	float CurrentEliteTotalFitness = 0.0f;
+	DebugComp.PopulationTotalEliteFitness.Empty();
+
 	if (EliteView.begin() != EliteView.end())
 	{
 		int32 EliteCount = 0;
@@ -56,6 +58,9 @@ void UGADebugDataSystem::Update_Implementation(float DeltaTime)
 				float Val = Fit.Fitness[0];
 				DebugComp.EliteFitness.Add(Val);
 				CurrentEliteTotalFitness += Val;
+
+				float& PopTotal = DebugComp.PopulationTotalEliteFitness.FindOrAdd(Fit.BuiltForFitnessIndex);
+				PopTotal += Val;
 			}
 		}
 		DebugComp.EliteCount = EliteCount;

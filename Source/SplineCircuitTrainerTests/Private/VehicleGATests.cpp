@@ -75,14 +75,14 @@ TEST_CLASS(SplineCircuitTrainer_GA_Tests, "SplineCircuitTrainer.GA")
 		}
 
 		// 4. Trigger Evolution
-		// We need to mark entities for reset before calling NewGeneration event, 
+		// We need to mark entities for reset before calling Evaluation event, 
 		// otherwise TournamentSelectionSystem won't pick them for breeding.
 		for (auto E : Population)
 		{
 			Registry.emplace<FResetGenomeComponent>(E);
 		}
 		
-		Trainer->ExecuteEvent(FName("NewGeneration"));
+		Trainer->ExecuteEvent(FName("GAEvaluationEvent"));
 
 		// 5. Verify Elites
 		// EliteCount = 2, so the 2 best (entities 8 and 9) should be selected as elites.

@@ -104,6 +104,12 @@ void UTournamentSelectionSystem::Update_Implementation(float /*DeltaTime*/)
 				continue;
 			}
 
+			// Must have a genome to contribute; skip placeholder elites created before any candidates exist
+			if (!Registry.all_of<FGenomeFloatViewComponent>(Entity))
+			{
+				continue;
+			}
+
 			const FFitnessComponent& Fit = Registry.get<FFitnessComponent>(Entity);
 			const int32 Dims = Fit.Fitness.Num();
 			if (Dims <= 0) { ++Order; continue; }

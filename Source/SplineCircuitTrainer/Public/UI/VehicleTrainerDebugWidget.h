@@ -34,6 +34,9 @@ struct FVehicleTrainerContextUIData
 	TArray<float> HistoricalTotalEliteFitness;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Trainer")
+	TMap<int32, float> PopulationTotalEliteFitness;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Trainer")
 	TArray<FSplineCircuitAliveEntityUIData> AliveEntities;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Trainer")

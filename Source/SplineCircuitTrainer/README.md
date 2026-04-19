@@ -23,21 +23,17 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
 5. The simulation runs continuously; entities are reset and evolved asynchronously based on performance-based triggers (e.g., timeout, off-track, or low velocity).
 
 ## API
-### AVehicleTrainerManager
-- `TrainerConfig`: Configuration used for each context.
-- `CircuitActor`: Actor containing the spline circuit to be used by all contexts.
-- `NumContexts`: Number of independent contexts to spawn.
-- `ContextSeeds`: Optional array to manually assign unique seeds to each context. If empty, seeds are assigned progressively (0, 1, 2, ...).
-
 ### AVehicleTrainerContext
 - `TrainerConfig`: Configuration data asset.
 - `CircuitActor`: Actor containing the spline for the circuit.
-- `RandomSeed`: Unique seed for this context, passed down from the Manager.
+- `RandomSeed`: Unique seed for this context.
 - `NextGeneration()`: Triggers the GA evolution step.
 - `ExecuteEvent("EvaluateNetworks")`: Manually triggers NN feedforward and output application.
+- `ToggleDebugUI()`: Toggles the SlateIM debug overlay (bound to 'H' key).
 
 ### UVehicleTrainerConfig
-- `Population`: Number of vehicles.
+- `Population`: Number of vehicles per population group.
+- `NumPopulations`: Number of independent population groups (e.g., for multi-objective or diversity).
 - `SpawnParametricDistance`: Distance along the spline where vehicles are spawned (default 200cm).
 - `Genetic Algorithm|Selection`:
   - `EliteCount`: Number of top performers to preserve.
@@ -62,7 +58,7 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
   - `StalenessCooldown`: Time (in seconds) to wait after a nuke before evaluating again.
   - `MinHistoryForStaleness`: Minimum number of historical values (e.g., 50) required before checking for staleness.
 - `Debug`:
-  - `DebugLogFrequency`: Frequency of the manager's update loop (in seconds). This controls the debug log, UI updates, and the staleness/nuke checks.
+  - `FitnessHistoryLength`: How many historical values to keep for UI visualization.
   - `bDebugInfo`: Enables debug visualizations and logs.
 
 ### FTrainingDataComponent
@@ -84,10 +80,13 @@ The trainer uses the following ECS systems to manage the steady-state evolution:
 - `UVehicleResetSystem`: Physically resets vehicles flagged for reset back to the start and resets their fitness, effectively replacing the individual in the steady-state pool.
 - `UGACleanupSystem`: Removes transient GA components and the eligibility tag for the next cycle.
 - `UGADebugDataSystem`: Collects GA information for visualization.
-- `UVehicleTrainerDebugSystem`: Visualizes the collected debug information via the manager's widget.
+- `UGAStalenessSystem`: Detects stagnant populations and triggers a "nuke" (partial population reset and pioneer injection from best performers).
+- `UVehicleTrainerDebugSystem`: Visualizes the collected debug information and logs GA evaluation results.
 
 ### Debug Visualization
 When `bDebugInfo` is enabled in the `UVehicleTrainerConfig`, a debug panel is displayed in the viewport using **SlateIM**.
+- **GA Evaluation Log**: Each GA evaluation cycle logs a single line `EU GA Evaluation` log visualizing the total elite fitness for each population group. This log is handled by the `UVehicleTrainerDebugSystem`.
+- **Entity Naming**: Vehicles are named in the hierarchy as `Vehicle_P%d_V%d`, where `P` is the population index and `V` is the entity order index within that population, allowing for easier tracking of individuals and groups.
 - **Reset Count**: Number of entities flagged for reset in the current frame.
 - **Elite Info**: Number of elites and a scrollable table of their fitness values.
 - **Breeding Info**: Fitness values for the first 4 breeding pairs.

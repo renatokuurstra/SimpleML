@@ -43,6 +43,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	int32 Population = 10;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
+	int32 NumPopulations = 1;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Structure")
 	TArray<int32> HiddenLayerSizes = { 16, 16 };
 
@@ -74,6 +77,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Selection")
 	float SelectionPressure = 0.85f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	bool bHigherIsBetter = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
 	float MutationRate = 0.05f;

@@ -104,5 +104,8 @@ struct GENETICALGORITHM_API FGeneticAlgorithmDebugComponent
 	TArray<float> HistoricalTotalEliteFitness;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Debug")
+	TMap<int32, float> PopulationTotalEliteFitness;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Debug")
 	int32 MaxHistoryLength = 50;
 };
