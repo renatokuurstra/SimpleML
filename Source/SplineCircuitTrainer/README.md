@@ -23,6 +23,13 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
 5. The simulation runs continuously; entities are reset and evolved asynchronously based on performance-based triggers (e.g., timeout, off-track, or low velocity).
 
 ## API
+### Input Processing (UVehicleNNInputSystem)
+The neural network inputs are normalized and signed to provide spatial awareness:
+1. **Signed Distance**: Normalized by `MaxSplineDistanceThreshold`. Positive if on the right of the spline, negative if on the left. Range `[-1.0, 1.0]`.
+2. **Current Orientation**: Z-component of the cross product between spline tangent and vehicle forward. `0` if parallel, `+1` if perpendicular right, `-1` if perpendicular left. Range `[-1.0, 1.0]`.
+3. **Future Orientations**: Same as current orientation, but sampled at look-ahead distances defined in `FutureDotProductDistances`.
+4. **Normalized Velocity**: Pawn velocity magnitude normalized by `MaxVelocityNormalization`. Range `[0.0, 1.0]`.
+
 ### AVehicleTrainerContext
 - `TrainerConfig`: Configuration data asset.
 - `CircuitActor`: Actor containing the spline for the circuit.
@@ -53,7 +60,7 @@ This plugin provides a high-level context (`AVehicleTrainerContext`) to manage a
   - `MinBreedAge`: Minimum age in seconds before an entity is eligible for fitness scoring and breeding.
   - `HighestFitnessFactor`: Percentage (0.0 - 1.0) of the highest fitness overall required for fitness eligibility.
 - `Genetic Algorithm|Nuke`:
-  - `bEnableNuke`: Global toggle for the context nuke system.
+  - `bEnableNuke`: Global toggle for the context nuke system. Disabled if `Population` <= 1.
   - `StalenessThreshold`: Minimum relative improvement (e.g., 0.01 for 1%) to avoid being marked as stale.
   - `StalenessCooldown`: Time (in seconds) to wait after a nuke before evaluating again.
   - `MinHistoryForStaleness`: Minimum number of historical values (e.g., 50) required before checking for staleness.

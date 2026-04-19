@@ -61,17 +61,24 @@ void UVehicleNNInputSystem::Update_Implementation(float DeltaTime)
 		FVector PawnLocation = Pawn->GetActorLocation();
 		FVector PawnForward = Pawn->GetActorForwardVector();
 
-		// 1) Distance to spline (normalized)
+		// 1) Signed Distance to spline (normalized)
 		float InputDistance = Spline->GetDistanceAlongSplineAtLocation(PawnLocation, ESplineCoordinateSpace::World);
 		FVector ClosestSplineLocation = Spline->GetLocationAtDistanceAlongSpline(InputDistance, ESplineCoordinateSpace::World);
-		float DistanceToSpline = FVector::Dist(PawnLocation, ClosestSplineLocation);
-		InComp.Values[0] = FMath::Clamp(DistanceToSpline / TrainerContext->TrainerConfig->MaxDistanceNormalization, 0.0f, 1.0f);
-
-		// 2) Dot product current
 		FVector SplineTangent = Spline->GetTangentAtDistanceAlongSpline(InputDistance, ESplineCoordinateSpace::World).GetSafeNormal();
-		InComp.Values[1] = FVector::DotProduct(PawnForward, SplineTangent);
+		FVector SplineUp = Spline->GetUpVectorAtDistanceAlongSpline(InputDistance, ESplineCoordinateSpace::World).GetSafeNormal();
+		
+		FVector ToPawn = PawnLocation - ClosestSplineLocation;
+		FVector RightVector = FVector::CrossProduct(SplineUp, SplineTangent).GetSafeNormal();
+		float SignedDistance = FVector::DotProduct(ToPawn, RightVector);
+		
+		InComp.Values[0] = FMath::Clamp(SignedDistance / TrainerContext->TrainerConfig->MaxSplineDistanceThreshold, -1.0f, 1.0f);
 
-		// 3 & 4) Future dot products
+		// 2) Signed orientation (0 = parallel, +1 = 90deg right, -1 = 90deg left)
+		// We use the Z component of the cross product between tangent and forward
+		FVector CrossCurrent = FVector::CrossProduct(SplineTangent, PawnForward);
+		InComp.Values[1] = FMath::Clamp(CrossCurrent.Z, -1.0f, 1.0f);
+
+		// 3 & 4) Future signed orientations
 		int32 InputIndex = 2;
 		float SplineLength = Spline->GetSplineLength();
 		for (float Offset : TrainerContext->TrainerConfig->FutureDotProductDistances)
@@ -89,7 +96,8 @@ void UVehicleNNInputSystem::Update_Implementation(float DeltaTime)
 			}
 
 			FVector FutureTangent = Spline->GetTangentAtDistanceAlongSpline(FutureDistance, ESplineCoordinateSpace::World).GetSafeNormal();
-			InComp.Values[InputIndex++] = FVector::DotProduct(PawnForward, FutureTangent);
+			FVector CrossFuture = FVector::CrossProduct(FutureTangent, PawnForward);
+			InComp.Values[InputIndex++] = FMath::Clamp(CrossFuture.Z, -1.0f, 1.0f);
 		}
 
 		// 5) Normalized velocity

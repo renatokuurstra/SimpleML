@@ -22,8 +22,16 @@ void UGAStalenessSystem::Update_Implementation(float DeltaTime)
 		return;
 	}
 
-	auto& Registry = GetRegistry();
 	const UVehicleTrainerConfig* Config = TrainerContext->TrainerConfig;
+
+	// If the population is only 1, the staleness system (nuke) doesn't make sense as there is no 
+	// diversity to maintain and no point in injecting pioneers into a single-slot pool.
+	if (Config->NumPopulations <= 1)
+	{
+		return;
+	}
+
+	auto& Registry = GetRegistry();
 	const float CurrentTime = TrainerContext->GetWorld()->GetTimeSeconds();
 	const bool bHigherIsBetter = Config->bHigherIsBetter;
 

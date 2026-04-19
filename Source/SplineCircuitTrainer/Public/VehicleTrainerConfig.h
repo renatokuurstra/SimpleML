@@ -40,9 +40,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	float SpawnParametricDistance = 200.0f;
 
+	//Number solutions in a population (ie solutions that can breed with each other)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	int32 Population = 10;
 
+	//Number of populations of solutions (each num is an "island")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	int32 NumPopulations = 1;
 
@@ -80,9 +82,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
 	bool bHigherIsBetter = true;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
-	float MutationRate = 0.05f;
 
 	/** Multiplicative delta for mutation: ± this percent */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
