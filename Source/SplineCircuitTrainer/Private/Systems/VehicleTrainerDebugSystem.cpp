@@ -7,10 +7,14 @@
 #include "SlateIM.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
+#include "DrawDebugHelpers.h"
+#include "VehicleComponent.h"
+#include "GameFramework/Pawn.h"
 
 UVehicleTrainerDebugSystem::UVehicleTrainerDebugSystem()
 {
 	RegisterComponent<FGeneticAlgorithmDebugComponent>();
+	RegisterComponent<FElitePromotionDebugComponent>();
 }
 
 void UVehicleTrainerDebugSystem::Initialize_Implementation(AEcsContext* InContext)
@@ -73,6 +77,39 @@ void UVehicleTrainerDebugSystem::Update_Implementation(float DeltaTime)
 		}
 
 		UE_LOG(LogTemp, Log, TEXT("%s"), *LogStr);
+	}
+
+	// Draw Elite Promotion Debug
+	float WorldTime = GetContext()->GetWorld()->GetTimeSeconds();
+	auto ElitePromoView = GetView<FElitePromotionDebugComponent>();
+	entt::registry& Registry = GetRegistry();
+
+	for (auto Entity : ElitePromoView)
+	{
+		FElitePromotionDebugComponent& PromoComp = ElitePromoView.get<FElitePromotionDebugComponent>(Entity);
+		if (WorldTime > PromoComp.ExpirationTime)
+		{
+			Registry.remove<FElitePromotionDebugComponent>(Entity);
+			continue;
+		}
+
+		// Try to update location if we have a source entity with a pawn
+		if (PromoComp.SourceEntity != entt::null && Registry.valid(PromoComp.SourceEntity))
+		{
+			if (Registry.all_of<FVehicleComponent>(PromoComp.SourceEntity))
+			{
+				const FVehicleComponent& Vehicle = Registry.get<FVehicleComponent>(PromoComp.SourceEntity);
+				if (Vehicle.VehiclePawn)
+				{
+					PromoComp.Location = Vehicle.VehiclePawn->GetActorLocation();
+				}
+			}
+		}
+
+		if (PromoComp.Location != FVector::ZeroVector)
+		{
+			DrawDebugPoint(GetContext()->GetWorld(), PromoComp.Location, 50.0f, FColor::Black, false, 20.0f, 0);
+		}
 	}
 }
 

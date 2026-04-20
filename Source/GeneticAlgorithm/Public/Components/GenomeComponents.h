@@ -6,6 +6,7 @@
 #include "CoreMinimal.h"
 #include "Containers/Array.h"
 #include "Containers/ArrayView.h"
+#include <atomic>
 #include "GenomeComponents.generated.h"
 
 /**
@@ -31,6 +32,30 @@ struct GENETICALGORITHM_API FGenomeCharViewComponent
 	GENERATED_BODY()
 
 	TArrayView<char> Values;
+};
+
+/**
+ * Unique identifier for a solution.
+ * Assigned when a solution is first created or reset.
+ */
+USTRUCT(BlueprintType)
+struct GENETICALGORITHM_API FUniqueSolutionComponent
+{
+	GENERATED_BODY()
+
+	UPROPERTY(VisibleAnywhere, Category = "GeneticAlgorithm")
+	int64 Id = 0;
+
+	// The ID of the solution this elite was copied from.
+	// 0 if it's not an elite copy.
+	UPROPERTY(VisibleAnywhere, Category = "GeneticAlgorithm")
+	int64 SourceId = 0;
+
+	static int64 GenerateNewId()
+	{
+		static std::atomic<int64> Counter{0};
+		return (FDateTime::UtcNow().GetTicks() & ~0xFFFFFFLL) | (++Counter & 0xFFFFFF);
+	}
 };
 
 /**
@@ -78,6 +103,27 @@ USTRUCT(BlueprintType)
 struct GENETICALGORITHM_API FEligibleForBreedingTagComponent
 {
 	GENERATED_BODY()
+};
+
+USTRUCT(BlueprintType)
+struct GENETICALGORITHM_API FElitePromotionDebugComponent
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Debug")
+	FVector Location = FVector::ZeroVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Debug")
+	float ExpirationTime = 0.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Debug")
+	float Fitness = 0.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Debug")
+	int32 PopulationIndex = 0;
+
+	// The source entity that was promoted (optional)
+	entt::entity SourceEntity = entt::null;
 };
 
 USTRUCT(BlueprintType)

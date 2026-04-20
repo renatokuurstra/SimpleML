@@ -171,6 +171,16 @@ void UBreedCharGenomesSystem::Update_Implementation(float /*DeltaTime*/)
         {
         	UE_LOG(LogTemp, Warning, TEXT("BreedCharGenomesSystem: missing FFitnessComponent on child (Entt id %d)"), static_cast<std::underlying_type_t<entt::entity>>(ChildEntity));
         }
+
+		// Assign a new unique ID since this is a new solution
+		if (Registry.all_of<FUniqueSolutionComponent>(ChildEntity))
+		{
+			Registry.get<FUniqueSolutionComponent>(ChildEntity).Id = FUniqueSolutionComponent::GenerateNewId();
+		}
+		else
+		{
+			Registry.emplace<FUniqueSolutionComponent>(ChildEntity).Id = FUniqueSolutionComponent::GenerateNewId();
+		}
     }
 
     // Warn if any pairs remain unused

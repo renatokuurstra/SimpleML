@@ -176,5 +176,15 @@ void UBreedFloatGenomesSystem::Update_Implementation(float /*DeltaTime*/)
 			if (Fit.Fitness.Num() == 0) { Fit.Fitness.SetNum(1, EAllowShrinking::No); }
 			for (int32 iFit = 0; iFit < Fit.Fitness.Num(); ++iFit) { Fit.Fitness[iFit] = 0.0f; }
 		}
+
+		// Assign a new unique ID since this is a new solution
+		if (Registry.all_of<FUniqueSolutionComponent>(ChildEntity))
+		{
+			Registry.get<FUniqueSolutionComponent>(ChildEntity).Id = FUniqueSolutionComponent::GenerateNewId();
+		}
+		else
+		{
+			Registry.emplace<FUniqueSolutionComponent>(ChildEntity).Id = FUniqueSolutionComponent::GenerateNewId();
+		}
 	}
 }

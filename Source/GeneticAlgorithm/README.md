@@ -23,11 +23,13 @@ This module is designed to be versatile, supporting both classic **Generational 
 
 ## Components
 - `FGenomeFloatViewComponent`: Non-owning view into a floating-point genome.
+- `FUniqueSolutionComponent`: Stores a unique ID for each solution to ensure identity across entities and generations.
 - `FFitnessComponent`: Stores fitness scores for an entity. Expected to be present for all solutions.
 - `FEligibleForBreedingTagComponent`: Tag component that marks an entity as a candidate for selection.
 - `FResetGenomeComponent`: Tag to mark an entity for genome reconstruction.
 - `FEliteTagComponent`: Tag to mark entities as elites to be preserved. Elites are automatically eligible for selection. Elites are ordered and maintained via a pool-based selection that prevents a single solution from occupying multiple elite spots.
 - `FBreedingPairComponent`: Links two parents together for breeding.
+- `FElitePromotionDebugComponent`: Stores promotion info for visualization (Location, Expiration, Fitness, PopIndex).
 - `FGeneticAlgorithmDebugComponent`: Stores summarized GA data for visualization.
 
 ## Debugging

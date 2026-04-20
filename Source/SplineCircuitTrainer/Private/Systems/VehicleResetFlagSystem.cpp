@@ -4,6 +4,7 @@
 #include "VehicleComponent.h"
 #include "Components/TrainingDataComponent.h"
 #include "Components/GenomeComponents.h"
+#include "Components/EliteComponents.h"
 #include "VehicleTrainerContext.h"
 #include "VehicleTrainerConfig.h"
 #include "Components/SplineComponent.h"
@@ -40,6 +41,14 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 	auto View = GetView<FVehicleComponent, FTrainingDataComponent>();
 	entt::registry& Registry = GetRegistry();
 
+	// Gather elite SourceIds to check if a car is an elite
+	TSet<int64> EliteSourceIds;
+	auto EliteView = Registry.view<FEliteTagComponent, FUniqueSolutionComponent>();
+	for (auto EliteEntity : EliteView)
+	{
+		EliteSourceIds.Add(EliteView.get<FUniqueSolutionComponent>(EliteEntity).SourceId);
+	}
+
 	for (auto Entity : View)
 	{
 		// Skip if already flagged for reset
@@ -59,6 +68,33 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 
 		FVector PawnLocation = VehicleComp.VehiclePawn->GetActorLocation();
 
+		auto DrawDeadDebug = [&]()
+		{
+			if (TrainerContext->TrainerConfig->bDebugInfo)
+			{
+				FColor Color = FColor::White;
+				float Duration = 3.0f;
+				if (Registry.all_of<FResetGenomeComponent>(Entity))
+				{
+					FName Reason = Registry.get<FResetGenomeComponent>(Entity).ReasonForReset;
+					if (Reason == UVehicleLibrary::ReasonTooFarFromSpline) Color = FColor::Red;
+					else if (Reason == UVehicleLibrary::ReasonTooSlow) Color = FColor::Blue;
+					else if (Reason == UVehicleLibrary::ReasonNoProgress) Color = FColor::Yellow;
+				}
+
+				DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, Color, false, Duration, 0);
+
+				if (Registry.all_of<FUniqueSolutionComponent>(Entity))
+				{
+					int64 MyId = Registry.get<FUniqueSolutionComponent>(Entity).Id;
+					if (EliteSourceIds.Contains(MyId))
+					{
+						DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, FColor::Black, false, 20.0f, 0);
+					}
+				}
+			}
+		};
+
 		// 1. Check distance from spline
 		FVector ClosestPoint = Spline->FindLocationClosestToWorldLocation(PawnLocation, ESplineCoordinateSpace::World);
 		float DistanceFromSpline = FVector::Dist(PawnLocation, ClosestPoint);
@@ -66,10 +102,7 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 		if (DistanceFromSpline > MaxDistThreshold)
 		{
 			Registry.emplace<FResetGenomeComponent>(Entity, FResetGenomeComponent{ UVehicleLibrary::ReasonTooFarFromSpline });
-			if (TrainerContext->TrainerConfig->bDebugInfo)
-			{
-				DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, FColor::Red, false, 3.0f, 0);
-			}
+			DrawDeadDebug();
 			continue;
 		}
 
@@ -81,10 +114,7 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 			if (AverageVelocity < MinAverageVelocity)
 			{
 				Registry.emplace<FResetGenomeComponent>(Entity, FResetGenomeComponent{ UVehicleLibrary::ReasonTooSlow });
-				if (TrainerContext->TrainerConfig->bDebugInfo)
-				{
-					DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, FColor::Blue, false, 3.0f, 0);
-				}
+				DrawDeadDebug();
 				continue;
 			}
 		}
@@ -93,10 +123,7 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 		if (TrainingData.TimeSinceLastProgress > NoProgressTimeout)
 		{
 			Registry.emplace<FResetGenomeComponent>(Entity, FResetGenomeComponent{ UVehicleLibrary::ReasonNoProgress });
-			if (TrainerContext->TrainerConfig->bDebugInfo)
-			{
-				DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, FColor::Yellow, false, 3.0f, 0);
-			}
+			DrawDeadDebug();
 		}
 	}
 }

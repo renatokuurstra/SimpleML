@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "EcsContext.h"
 #include "EcsSystem.h"
 #include "Components/EliteComponents.h"
 #include "Components/GenomeComponents.h" // Forward reference not needed, but keep if required by UHT elsewhere
@@ -134,192 +135,200 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 		void ApplySelection()
 		{
 			auto& Registry = GetRegistry();
-			// Source: all non-elite entities that have fitness; derived systems decide if an entity is a valid candidate via IsCandidate
-			// We only consider entities that are eligible for breeding.
-			auto SourceView = Registry.view<FFitnessComponent, FEligibleForBreedingTagComponent>(entt::exclude_t<FEliteTagComponent>{});
-		
+			
+			// 1. Gather all candidates (eligible for breeding, non-elite)
+			auto SourceView = Registry.view<FFitnessComponent, FUniqueSolutionComponent, FEligibleForBreedingTagComponent>(entt::exclude_t<FEliteTagComponent>{});
+			
 			SelectionBuckets.Reset();
-			IndexScratch.Reset();
-		
-			// Stream all candidates into per-index buckets
-			int32 CurrentOrder = 0;
+			
 			for (auto Entity : SourceView)
 			{
 				const FFitnessComponent& Fit = SourceView.get<FFitnessComponent>(Entity);
-				if (!IsCandidate(Entity, Fit)) { ++CurrentOrder; continue; }
+				if (!IsCandidate(Entity, Fit)) { continue; }
 				
 				const int32 FitnessIndex = Fit.BuiltForFitnessIndex;
-				if (FitnessIndex < 0) { ++CurrentOrder; continue; }
+				if (FitnessIndex < 0) { continue; }
 
 				if (SelectionBuckets.Num() <= FitnessIndex) { SelectionBuckets.SetNum(FitnessIndex + 1); }
 				
 				TArray<FEntityFitness>& Bucket = SelectionBuckets[FitnessIndex];
 				FEntityFitness& Entry = Bucket.Emplace_GetRef();
 				Entry.Value = (Fit.Fitness.Num() > FitnessIndex) ? Fit.Fitness[FitnessIndex] : 0.0f;
-				Entry.Order = CurrentOrder;
 				Entry.Entity = Entity;
-				
-				++CurrentOrder;
-			}
-		
-			// For each fitness index, maintain and update elites
-			TMap<int32, float> TotalEliteFitnessPerPop;
-			
-			// Find max population index in registry
-			int32 MaxPopIndex = -1;
-			auto AllFitView = Registry.view<FFitnessComponent>();
-			for (auto E : AllFitView)
-			{
-				MaxPopIndex = FMath::Max(MaxPopIndex, AllFitView.get<FFitnessComponent>(E).BuiltForFitnessIndex);
 			}
 
+			// 2. Identify existing elites and their SourceIds
+			auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent, FUniqueSolutionComponent>();
+			
+			// Group existing elites by FitnessIndex
+			TMap<int32, TArray<entt::entity>> ElitesByPop;
+			int32 MaxPopIndex = -1;
+			for (auto E : EliteView)
+			{
+				const FFitnessComponent& Fit = EliteView.get<FFitnessComponent>(E);
+				ElitesByPop.FindOrAdd(Fit.BuiltForFitnessIndex).Add(E);
+				MaxPopIndex = FMath::Max(MaxPopIndex, Fit.BuiltForFitnessIndex);
+			}
+			
+			// Also find max pop index from candidates
+			for (int32 i = 0; i < SelectionBuckets.Num(); ++i) { MaxPopIndex = FMath::Max(MaxPopIndex, i); }
+
+			TMap<int32, float> TotalEliteFitnessPerPop;
+
+			// 3. Process each population
 			for (int32 FitnessIndex = 0; FitnessIndex <= MaxPopIndex; ++FitnessIndex)
 			{
+				TArray<entt::entity>& CurrentElites = ElitesByPop.FindOrAdd(FitnessIndex);
 				TArray<FEntityFitness> EmptyBucket;
-				TArray<FEntityFitness>& Bucket = SelectionBuckets.IsValidIndex(FitnessIndex) ? SelectionBuckets[FitnessIndex] : EmptyBucket;
-				
-				// Ensure we have the desired number of elite entities for this index
-				TArray<entt::entity> ElitePool;
-				GatherElitePool(FitnessIndex, EliteCount, ElitePool);
-				
-				if (Bucket.Num() == 0) 
+				TArray<FEntityFitness>& Candidates = SelectionBuckets.IsValidIndex(FitnessIndex) ? SelectionBuckets[FitnessIndex] : EmptyBucket;
+
+				// Map SourceId -> Elite entity for existing elites in this population
+				TMap<int64, entt::entity> SourceIdToElite;
+				for (entt::entity EliteE : CurrentElites)
 				{
-					// If no candidates, still track elite fitness
-					float TotalEliteFitness = 0.0f;
-					for (entt::entity EliteE : ElitePool)
+					SourceIdToElite.Add(Registry.get<FUniqueSolutionComponent>(EliteE).SourceId, EliteE);
+				}
+
+				// Combine current elites and candidates into a pool of UNIQUE solutions (by ID)
+				struct FUniqueCandidate
+				{
+					int64 Id = 0;
+					float BestFitness = 0.0f;
+					entt::entity SourceEntity = entt::null; // One of the entities with this ID
+					entt::entity ExistingElite = entt::null;
+				};
+				TMap<int64, FUniqueCandidate> UniquePool;
+
+				// Add existing elites to the pool
+				for (entt::entity EliteE : CurrentElites)
+				{
+					int64 SId = Registry.get<FUniqueSolutionComponent>(EliteE).SourceId;
+					FUniqueCandidate& UC = UniquePool.FindOrAdd(SId);
+					UC.Id = SId;
+					UC.BestFitness = Registry.get<FFitnessComponent>(EliteE).Fitness[FitnessIndex];
+					UC.ExistingElite = EliteE;
+				}
+
+				// Add candidates to the pool
+				for (const FEntityFitness& Cand : Candidates)
+				{
+					int64 CId = Registry.get<FUniqueSolutionComponent>(Cand.Entity).Id;
+					FUniqueCandidate& UC = UniquePool.FindOrAdd(CId);
+					UC.Id = CId;
+					if (UC.SourceEntity == entt::null || (bHigherIsBetter ? (Cand.Value > UC.BestFitness) : (Cand.Value < UC.BestFitness)))
 					{
-						float Val = Registry.get<FFitnessComponent>(EliteE).Fitness[FitnessIndex];
-						// Avoid adding -inf or neutral values to total if it's the uninitialized elite
-						float NeutralVal = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
-						if (Val != NeutralVal)
+						UC.BestFitness = Cand.Value;
+						UC.SourceEntity = Cand.Entity;
+					}
+				}
+
+				// Sort unique pool by fitness
+				TArray<FUniqueCandidate> SortedPool;
+				UniquePool.GenerateValueArray(SortedPool);
+				SortedPool.Sort([this](const FUniqueCandidate& A, const FUniqueCandidate& B)
+				{
+					if (bHigherIsBetter) return A.BestFitness > B.BestFitness;
+					return A.BestFitness < B.BestFitness;
+				});
+
+				// Top N selection
+				int32 ActualEliteCount = FMath::Min(EliteCount, SortedPool.Num());
+				TArray<entt::entity> NewEliteEntities;
+				float TotalEliteFitness = 0.0f;
+
+				for (int32 i = 0; i < ActualEliteCount; ++i)
+				{
+					FUniqueCandidate& UC = SortedPool[i];
+					TotalEliteFitness += UC.BestFitness;
+
+					if (UC.ExistingElite != entt::null)
+					{
+						// Already an elite, just update fitness if needed
+						FFitnessComponent& Fit = Registry.get<FFitnessComponent>(UC.ExistingElite);
+						Fit.Fitness[FitnessIndex] = UC.BestFitness;
+						Fit.EliteIndex = i;
+						NewEliteEntities.Add(UC.ExistingElite);
+					}
+					else
+					{
+						// New solution became elite. We need to repurpose an old elite or create a new one.
+						entt::entity TargetElite = entt::null;
+						
+						// Try to find an elite from CurrentElites that is NOT in the new top N
+						for (int32 j = 0; j < CurrentElites.Num(); ++j)
 						{
-							TotalEliteFitness += Val;
+							if (CurrentElites[j] != entt::null && !NewEliteEntities.Contains(CurrentElites[j]))
+							{
+								// Check if this elite we want to repurpose is needed later in SortedPool
+								bool bNeededLater = false;
+								for (int32 k = i + 1; k < ActualEliteCount; ++k)
+								{
+									if (SortedPool[k].ExistingElite == CurrentElites[j]) { bNeededLater = true; break; }
+								}
+								if (!bNeededLater)
+								{
+									TargetElite = CurrentElites[j];
+									CurrentElites[j] = entt::null; // Mark as used
+									break;
+								}
+							}
+						}
+
+						if (TargetElite == entt::null)
+						{
+							TargetElite = Registry.create();
+							Registry.emplace<FEliteTagComponent>(TargetElite);
+							Registry.emplace<FUniqueSolutionComponent>(TargetElite);
+							FFitnessComponent& NewFit = Registry.emplace<FFitnessComponent>(TargetElite);
+							NewFit.BuiltForFitnessIndex = FitnessIndex;
+							NewFit.Fitness.SetNum(FitnessIndex + 1);
+						}
+
+						// Update target elite
+						Registry.get<FUniqueSolutionComponent>(TargetElite).SourceId = UC.Id;
+						FFitnessComponent& Fit = Registry.get<FFitnessComponent>(TargetElite);
+						Fit.Fitness[FitnessIndex] = UC.BestFitness;
+						Fit.EliteIndex = i;
+						
+						CopyGenomeToElite(UC.SourceEntity, TargetElite, FitnessIndex);
+						NewEliteEntities.Add(TargetElite);
+
+						// Log promotion
+						UE_LOG(LogTemp, Log, TEXT("Promoting new elite in Pop %d with fitness %.2f (ID: %lld)"), FitnessIndex, UC.BestFitness, UC.Id);
+
+						// Add debug representation if source entity exists
+						if (UC.SourceEntity != entt::null)
+						{
+							FElitePromotionDebugComponent& PromoDebug = Registry.get_or_emplace<FElitePromotionDebugComponent>(TargetElite);
+							PromoDebug.Fitness = UC.BestFitness;
+							PromoDebug.PopulationIndex = FitnessIndex;
+							PromoDebug.ExpirationTime = GetContext()->GetWorld()->GetTimeSeconds() + 20.0f;
+							PromoDebug.SourceEntity = UC.SourceEntity;
 						}
 					}
-					TotalEliteFitnessPerPop.Add(FitnessIndex, TotalEliteFitness);
-					continue;
 				}
 
-				// Sort candidates
-				IndexScratch.Reset(Bucket.Num());
-				for (int32 i = 0; i < Bucket.Num(); ++i) { IndexScratch.Add(i); }
-				IndexScratch.Sort([this, &Bucket](int32 A, int32 B)
+				// Cleanup unused elites for this population
+				for (entt::entity E : CurrentElites)
 				{
-					const float VA = Bucket[A].Value;
-					const float VB = Bucket[B].Value;
-					if (bHigherIsBetter)
+					if (E != entt::null && !NewEliteEntities.Contains(E))
 					{
-						if (VA != VB) return VA > VB;
+						Registry.destroy(E);
 					}
-					else
-					{
-						if (VA != VB) return VA < VB;
-					}
-					return Bucket[A].Order < Bucket[B].Order;
-				});
-
-				// 1. Combine current elites and candidates into a single pool.
-				struct FPotentialElite
-				{
-					float Fitness = 0.0f;
-					entt::entity SourceEntity = entt::null; // null if it's already an elite
-					entt::entity ExistingEliteEntity = entt::null; // if it's already an elite
-				};
-
-				TArray<FPotentialElite> PotentialElites;
-				PotentialElites.Reserve(ElitePool.Num() + Bucket.Num());
-
-				// Add current elites to potential pool
-				for (entt::entity EliteE : ElitePool)
-				{
-					FPotentialElite PE;
-					PE.Fitness = Registry.get<FFitnessComponent>(EliteE).Fitness[FitnessIndex];
-					PE.ExistingEliteEntity = EliteE;
-					PotentialElites.Add(PE);
 				}
 
-				// Add candidates to potential pool
-				for (int32 i = 0; i < IndexScratch.Num(); ++i)
-				{
-					const FEntityFitness& Candidate = Bucket[IndexScratch[i]];
-					FPotentialElite PE;
-					PE.Fitness = Candidate.Value;
-					PE.SourceEntity = Candidate.Entity;
-					PotentialElites.Add(PE);
-				}
-
-				// 2. Sort the potential pool
-				PotentialElites.Sort([this](const FPotentialElite& A, const FPotentialElite& B)
-				{
-					if (bHigherIsBetter)
-					{
-						return A.Fitness > B.Fitness;
-					}
-					return A.Fitness < B.Fitness;
-				});
-
-				// 3. Take top N and update ElitePool
-				TArray<entt::entity> NewEliteEntities;
-				NewEliteEntities.Reserve(EliteCount);
-				
-				TArray<int32> WinningPEIndices;
-				WinningPEIndices.Reserve(EliteCount);
-
-				int32 PEIdx = 0;
-				float TotalEliteFitness = 0.0f;
-				float NeutralVal = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
-				while (WinningPEIndices.Num() < EliteCount && PEIdx < PotentialElites.Num())
-				{
-					WinningPEIndices.Add(PEIdx);
-					if (PotentialElites[PEIdx].Fitness != NeutralVal)
-					{
-						TotalEliteFitness += PotentialElites[PEIdx].Fitness;
-					}
-					if (PotentialElites[PEIdx].ExistingEliteEntity != entt::null)
-					{
-						NewEliteEntities.Add(PotentialElites[PEIdx].ExistingEliteEntity);
-					}
-					PEIdx++;
-				}
 				TotalEliteFitnessPerPop.Add(FitnessIndex, TotalEliteFitness);
-
-				// Repurposing logic:
-				TArray<entt::entity> ElitesToRepurpose;
-				for (entt::entity E : ElitePool)
-				{
-					if (!NewEliteEntities.Contains(E))
-					{
-						ElitesToRepurpose.Add(E);
-					}
-				}
-
-				int32 RepurposeIdx = 0;
-				for (int32 i = 0; i < WinningPEIndices.Num(); ++i)
-				{
-					int32 WinnerIdx = WinningPEIndices[i];
-					FPotentialElite& PE = PotentialElites[WinnerIdx];
-					
-					if (PE.ExistingEliteEntity != entt::null)
-					{
-						Registry.get<FFitnessComponent>(PE.ExistingEliteEntity).EliteIndex = i;
-					}
-					else
-					{
-						entt::entity TargetElite = ElitesToRepurpose[RepurposeIdx++];
-						FFitnessComponent& EliteFit = Registry.get<FFitnessComponent>(TargetElite);
-						EliteFit.Fitness[FitnessIndex] = PE.Fitness;
-						EliteFit.BuiltForFitnessIndex = FitnessIndex;
-						EliteFit.EliteIndex = i;
-						CopyGenomeToElite(PE.SourceEntity, TargetElite, FitnessIndex);
-					}
-				}
 			}
 
-			// Update debug component with elite fitness information
+			// Update debug component
 			auto DebugView = Registry.view<FGeneticAlgorithmDebugComponent>();
 			for (auto DebugEntity : DebugView)
 			{
 				FGeneticAlgorithmDebugComponent& DebugComp = DebugView.get<FGeneticAlgorithmDebugComponent>(DebugEntity);
+				for (int32 i = 0; i <= MaxPopIndex; ++i)
+				{
+					if (!TotalEliteFitnessPerPop.Contains(i)) { TotalEliteFitnessPerPop.Add(i, 0.0f); }
+				}
 				DebugComp.PopulationTotalEliteFitness = TotalEliteFitnessPerPop;
 			}
 		}

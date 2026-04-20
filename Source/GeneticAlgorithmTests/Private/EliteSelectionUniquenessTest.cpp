@@ -10,7 +10,7 @@
 TEST_CLASS(EliteSelection_Uniqueness_Tests, "GeneticAlgorithm.EliteSelection")
 {
 	entt::registry Registry;
-	UEliteSelectionFloatSystem* EliteSystem = nullptr;
+	TObjectPtr<UEliteSelectionFloatSystem> EliteSystem;
 
 	BEFORE_EACH()
 	{
@@ -32,22 +32,27 @@ TEST_CLASS(EliteSelection_Uniqueness_Tests, "GeneticAlgorithm.EliteSelection")
 
 	TEST_METHOD(A_Single_Solution_Does_Not_Take_Multiple_Elite_Spots)
 	{
-		// Create 10 entities with different fitness values
+		// 1. Create 10 entities with unique IDs and different fitness values
+		TArray<int64> UniqueIds;
 		for (int32 i = 0; i < 10; ++i)
 		{
 			const entt::entity E = Registry.create();
 			FFitnessComponent Fit{};
-			Fit.Fitness = { static_cast<float>(i) };
+			Fit.Fitness.Add(static_cast<float>(i));
 			Fit.BuiltForFitnessIndex = 0;
-			Registry.emplace<FFitnessComponent>(E, Fit);
+			Registry.emplace<FFitnessComponent>(E, MoveTemp(Fit));
 			Registry.emplace<FEligibleForBreedingTagComponent>(E);
 			
-			// We need a genome for CopyGenomeToElite to work
+			FUniqueSolutionComponent Unique;
+			Unique.Id = FUniqueSolutionComponent::GenerateNewId();
+			UniqueIds.Add(Unique.Id);
+			Registry.emplace<FUniqueSolutionComponent>(E, Unique);
+
 			FEliteOwnedFloatGenome Genome;
-			Genome.Values = { static_cast<float>(i) };
-			Registry.emplace<FEliteOwnedFloatGenome>(E, Genome);
+			Genome.Values.Add(static_cast<float>(i));
+			Registry.emplace<FEliteOwnedFloatGenome>(E, MoveTemp(Genome));
 			FGenomeFloatViewComponent View;
-			View.Values = Genome.Values;
+			View.Values = Registry.get<FEliteOwnedFloatGenome>(E).Values;
 			Registry.emplace<FGenomeFloatViewComponent>(E, View);
 		}
 
@@ -55,50 +60,69 @@ TEST_CLASS(EliteSelection_Uniqueness_Tests, "GeneticAlgorithm.EliteSelection")
 		EliteSystem->Update_Implementation(0.0f);
 
 		// Check elites
-		auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent>();
+		auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent, FUniqueSolutionComponent>();
+		int32 EliteCount = 0;
+		for (auto E : EliteView) { ++EliteCount; }
+		ASSERT_THAT(AreEqual((int32)3, EliteCount, TEXT("Should have exactly 3 elites")));
+
 		TArray<float> EliteFitnesses;
+		TArray<int64> EliteSourceIds;
 		for (auto E : EliteView)
 		{
 			EliteFitnesses.Add(EliteView.get<FFitnessComponent>(E).Fitness[0]);
+			EliteSourceIds.Add(EliteView.get<FUniqueSolutionComponent>(E).SourceId);
 		}
 
-		// Should have 3 elites
-		ASSERT_THAT(AreEqual(3, EliteFitnesses.Num(), "Should have exactly 3 elites"));
-
-		// Should have unique fitnesses (9, 8, 7)
 		EliteFitnesses.Sort([](float A, float B) { return A > B; });
-		ASSERT_THAT(IsNear(9.0f, EliteFitnesses[0], 0.001f, "Best elite should have fitness 9"));
-		ASSERT_THAT(IsNear(8.0f, EliteFitnesses[1], 0.001f, "Second elite should have fitness 8"));
-		ASSERT_THAT(IsNear(7.0f, EliteFitnesses[2], 0.001f, "Third elite should have fitness 7"));
+		ASSERT_THAT(IsNear(9.0f, EliteFitnesses[0], 0.001f, TEXT("Best elite should have fitness 9")));
+		ASSERT_THAT(IsNear(8.0f, EliteFitnesses[1], 0.001f, TEXT("Second elite should have fitness 8")));
+		ASSERT_THAT(IsNear(7.0f, EliteFitnesses[2], 0.001f, TEXT("Third elite should have fitness 7")));
 
-		// Now simulate another generation where the best solution improves
-		// In a real GA, the population is replaced. But elites persist.
-		// Let's just update the population fitness.
-		auto PopView = Registry.view<FFitnessComponent>(entt::exclude_t<FEliteTagComponent>{});
+		// 2. Simulate another generation where IDs stay the same but fitness changes
+		// AND we have multiple entities with the SAME ID (duplicates)
+		auto PopView = Registry.view<FFitnessComponent, FUniqueSolutionComponent>(entt::exclude_t<FEliteTagComponent>{});
 		for (auto E : PopView)
 		{
 			FFitnessComponent& Fit = Registry.get<FFitnessComponent>(E);
-			Fit.Fitness[0] += 10.0f; // New fitnesses 10 to 19
+			// Update fitness: 9->19, 8->18, etc.
+			Fit.Fitness[0] += 10.0f; 
+
+			// Create a duplicate entity with the same ID but lower fitness
+			const entt::entity Duplicate = Registry.create();
+			FFitnessComponent DupFit = Fit;
+			DupFit.Fitness[0] -= 5.0f; // Lower fitness for the same solution
+			Registry.emplace<FFitnessComponent>(Duplicate, DupFit);
+			Registry.emplace<FEligibleForBreedingTagComponent>(Duplicate);
+			Registry.emplace<FUniqueSolutionComponent>(Duplicate, Registry.get<FUniqueSolutionComponent>(E));
+			
+			// Add required genome view
+			FGenomeFloatViewComponent& SrcView = Registry.get<FGenomeFloatViewComponent>(E);
+			Registry.emplace<FGenomeFloatViewComponent>(Duplicate, SrcView);
 		}
 
 		// Run elite selection again
 		EliteSystem->Update_Implementation(0.0f);
 
 		EliteFitnesses.Reset();
-		for (auto E : EliteView)
+		EliteSourceIds.Reset();
+		auto NewEliteView = Registry.view<FEliteTagComponent, FFitnessComponent, FUniqueSolutionComponent>();
+		int32 NewEliteCount = 0;
+		for (auto E : NewEliteView)
 		{
-			EliteFitnesses.Add(EliteView.get<FFitnessComponent>(E).Fitness[0]);
+			++NewEliteCount;
+			EliteFitnesses.Add(NewEliteView.get<FFitnessComponent>(E).Fitness[0]);
+			EliteSourceIds.Add(NewEliteView.get<FUniqueSolutionComponent>(E).SourceId);
 		}
 		EliteFitnesses.Sort([](float A, float B) { return A > B; });
 
-		ASSERT_THAT(AreEqual(3, EliteFitnesses.Num(), "Should still have 3 elites"));
-		ASSERT_THAT(IsNear(19.0f, EliteFitnesses[0], 0.001f, "Best elite should now be 19"));
-		ASSERT_THAT(IsNear(18.0f, EliteFitnesses[1], 0.001f, "Second elite should now be 18"));
-		ASSERT_THAT(IsNear(17.0f, EliteFitnesses[2], 0.001f, "Third elite should now be 17"));
+		ASSERT_THAT(AreEqual((int32)3, NewEliteCount, TEXT("Should still have 3 elites")));
+		ASSERT_THAT(IsNear(19.0f, EliteFitnesses[0], 0.001f, TEXT("Best elite should now be 19")));
+		ASSERT_THAT(IsNear(18.0f, EliteFitnesses[1], 0.001f, TEXT("Second elite should now be 18")));
+		ASSERT_THAT(IsNear(17.0f, EliteFitnesses[2], 0.001f, TEXT("Third elite should now be 17")));
 		
-		// Ensure no duplicates in the final elite fitnesses
-		TSet<float> UniqueFitnesses;
-		for(float F : EliteFitnesses) { UniqueFitnesses.Add(F); }
-		ASSERT_THAT(AreEqual(3, UniqueFitnesses.Num(), "Elites should all have unique fitness values from the top of the combined pool"));
+		// Ensure no duplicates in the final elite SOURCE IDs
+		TSet<int64> UniqueSourceIds;
+		for(int64 SId : EliteSourceIds) { UniqueSourceIds.Add(SId); }
+		ASSERT_THAT(AreEqual((int32)3, UniqueSourceIds.Num(), TEXT("Elites should represent 3 unique solution IDs")));
 	}
 };

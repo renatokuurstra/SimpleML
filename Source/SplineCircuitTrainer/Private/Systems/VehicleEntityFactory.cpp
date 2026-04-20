@@ -107,6 +107,10 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 				FitComp.Fitness[0] = 0.0f;
 				FitComp.BuiltForFitnessIndex = p;
 
+				// Add Unique ID component
+				FUniqueSolutionComponent& UniqueComp = InRegistry.emplace<FUniqueSolutionComponent>(Entity);
+				UniqueComp.Id = FUniqueSolutionComponent::GenerateNewId();
+
 				// Initialize Neural Network from config
 				TArray<FNeuralNetworkLayerDescriptor> LayerDescriptors = TrainerContext->TrainerConfig->GetNNLayerDescriptors();
 				if (LayerDescriptors.Num() >= 2)

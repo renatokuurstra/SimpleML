@@ -40,22 +40,37 @@ void UGAStalenessSystem::Update_Implementation(float DeltaTime)
 	auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent>();
 	
 	entt::entity GlobalBestElite = entt::null;
-	float GlobalBestFitness = -MAX_FLT;
+	float GlobalBestFitness = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
 
 	for (auto E : EliteView)
 	{
 		const auto& Fit = EliteView.get<FFitnessComponent>(E);
 		if (Fit.Fitness.Num() > 0)
 		{
-			float Val = Fit.Fitness[0];
-			float& Total = CurrentPopFitness.FindOrAdd(Fit.BuiltForFitnessIndex);
-			Total += Val;
-
-			if (Val > GlobalBestFitness)
+			const float Val = Fit.Fitness[0];
+			
+			// Only count non-neutral fitness
+			const float NeutralVal = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
+			if (Val != NeutralVal)
 			{
-				GlobalBestFitness = Val;
-				GlobalBestElite = E;
+				float& Total = CurrentPopFitness.FindOrAdd(Fit.BuiltForFitnessIndex);
+				Total += Val;
+
+				if (bHigherIsBetter ? (Val > GlobalBestFitness) : (Val < GlobalBestFitness))
+				{
+					GlobalBestFitness = Val;
+					GlobalBestElite = E;
+				}
 			}
+		}
+	}
+	
+	// Ensure all populations are accounted for (even if they have no valid elites)
+	for (int32 i = 0; i < Config->NumPopulations; ++i)
+	{
+		if (!CurrentPopFitness.Contains(i))
+		{
+			CurrentPopFitness.Add(i, 0.0f);
 		}
 	}
 
@@ -99,13 +114,23 @@ void UGAStalenessSystem::Update_Implementation(float DeltaTime)
 	}
 
 	// 3. Find the worst stale population (lowest total elite fitness)
+	// IMPORTANT: We should NOT nuke the population containing the global best elite.
 	int32 WorstStalePop = -1;
-	float MinStaleFitness = MAX_FLT;
+	float MinStaleFitness = bHigherIsBetter ? MAX_FLT : -MAX_FLT;
+
+	const FFitnessComponent* GlobalBestFit = Registry.try_get<FFitnessComponent>(GlobalBestElite);
+	const int32 GlobalBestPopIdx = GlobalBestFit ? GlobalBestFit->BuiltForFitnessIndex : -1;
 
 	for (int32 PopIdx : StalePopulations)
 	{
+		// Protect the global best population from being nuked
+		if (PopIdx == GlobalBestPopIdx)
+		{
+			continue;
+		}
+
 		float Fit = CurrentPopFitness[PopIdx];
-		if (Fit < MinStaleFitness)
+		if (bHigherIsBetter ? (Fit < MinStaleFitness) : (Fit > MinStaleFitness))
 		{
 			MinStaleFitness = Fit;
 			WorstStalePop = PopIdx;
@@ -161,7 +186,6 @@ void UGAStalenessSystem::Update_Implementation(float DeltaTime)
 
 		// 5. Pioneer Injection: create a new elite entity seeded with the global best genome.
 		// Only migrate from a DIFFERENT population so we don't clone within the same pool.
-		const FFitnessComponent* GlobalBestFit = GetRegistry().try_get<FFitnessComponent>(GlobalBestElite);
 		const bool bGlobalBestFromDifferentPop = GlobalBestFit && GlobalBestFit->BuiltForFitnessIndex != WorstStalePop;
 
 		if (GetRegistry().valid(GlobalBestElite) && GetRegistry().valid(LocalWorstElite) && bGlobalBestFromDifferentPop)
