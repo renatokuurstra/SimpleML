@@ -92,6 +92,17 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 				USplineComponent* Spline = TrainerContext->GetCircuitSpline();
 				UVehicleLibrary::SetTrainingData(TrainingData, Spline, SpawnLocation, World->GetTimeSeconds());
 				
+				// Initialize segment pass count array to match number of spline segments
+				if (Spline)
+				{
+					int32 NumPoints = Spline->GetNumberOfSplinePoints();
+					int32 NumSegments = NumPoints > 1 ? NumPoints - 1 : 0;
+					if (NumSegments > 0)
+					{
+						TrainingData.SegmentPassCount.Init(0, NumSegments);
+					}
+				}
+				
 
 				// Add NN Input and Output components
 				FNNInFLoatComp& InComp = InRegistry.emplace<FNNInFLoatComp>(Entity);
@@ -103,8 +114,7 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 
 				// Add Fitness component
 				FFitnessComponent& FitComp = InRegistry.emplace<FFitnessComponent>(Entity);
-				FitComp.Fitness.SetNum(1);
-				FitComp.Fitness[0] = 0.0f;
+				FitComp.Fitness.AddZeroed(p+1);
 				FitComp.BuiltForFitnessIndex = p;
 
 				// Add Unique ID component

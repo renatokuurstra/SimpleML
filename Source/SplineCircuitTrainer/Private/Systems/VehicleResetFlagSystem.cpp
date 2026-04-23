@@ -80,6 +80,7 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 					if (Reason == UVehicleLibrary::ReasonTooFarFromSpline) Color = FColor::Red;
 					else if (Reason == UVehicleLibrary::ReasonTooSlow) Color = FColor::Blue;
 					else if (Reason == UVehicleLibrary::ReasonNoProgress) Color = FColor::Yellow;
+					else if (Reason == UVehicleLibrary::ReasonIncorrectProgress) Color = FColor::White; // Use white for incorrect progress
 				}
 
 				DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, Color, false, Duration, 0);

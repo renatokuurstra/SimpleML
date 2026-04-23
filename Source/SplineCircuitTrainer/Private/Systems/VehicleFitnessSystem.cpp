@@ -21,9 +21,8 @@ void UVehicleFitnessSystem::Update_Implementation(float DeltaTime)
 
 		if (FitComp.Fitness.Num() > 0)
 		{
-			float Distance = TrainingData.DistanceTraveled;
-			// Add the cube of DistanceTraveled to the fitness.
-			FitComp.Fitness[0] += (Distance * Distance * Distance * Distance * Distance);
+			float Distance = TrainingData.LastSplineDistance * TrainingData.LastSplineDistance;
+			FitComp.Fitness[FitComp.BuiltForFitnessIndex] = Distance;
 		}
 	}
 }

@@ -42,4 +42,8 @@ struct FTrainingDataComponent
 	/** Unreal engine time since start when the entity was created. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
 	float CreationTime = 0.0f;
+	
+	/** Array to track how many times a car has passed through each segment of the spline. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
+	TArray<int32> SegmentPassCount;
 };

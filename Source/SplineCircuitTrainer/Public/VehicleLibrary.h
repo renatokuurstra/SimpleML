@@ -4,15 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "UObject/NoExportTypes.h"
 #include "VehicleLibrary.generated.h"
 
-class USplineComponent;
-class AVehicleTrainerContext;
-
 /**
- * UVehicleLibrary
- * Static utility functions for vehicle handling in the trainer.
+ * Utility library for vehicle-related functions.
  */
 UCLASS()
 class SPLINECIRCUITTRAINER_API UVehicleLibrary : public UBlueprintFunctionLibrary
@@ -20,22 +15,30 @@ class SPLINECIRCUITTRAINER_API UVehicleLibrary : public UBlueprintFunctionLibrar
 	GENERATED_BODY()
 
 public:
+	/** Reason for resetting a vehicle because it moved too far from the spline. */
 	static const FName ReasonTooFarFromSpline;
+	
+	/** Reason for resetting a vehicle because it made no progress for too long. */
 	static const FName ReasonNoProgress;
+	
+	/** Reason for resetting a vehicle because it was moving too slowly. */
 	static const FName ReasonTooSlow;
+	
+	/** Reason for resetting a vehicle because it is not progressing correctly along the spline. */
+	static const FName ReasonIncorrectProgress;
 
 	/**
-	 * Calculates the spawn transform for a vehicle at a given spline distance.
+	 * Gets the spawn transform for a vehicle based on a spline.
 	 */
-	static void GetVehicleSpawnTransform(const USplineComponent* Spline, float Distance, float VerticalOffset, FVector& OutLocation, FRotator& OutRotation);
-
+	static void GetVehicleSpawnTransform(const class USplineComponent* Spline, float Distance, float VerticalOffset, FVector& OutLocation, FRotator& OutRotation);
+	
 	/**
-	 * Resets a pawn to a specific location and rotation, clearing physical states.
+	 * Resets the physical state of a pawn (location, rotation, velocity).
 	 */
 	static void ResetPawnPhysicalState(APawn* Pawn, const FVector& Location, const FRotator& Rotation);
-
+	
 	/**
-	 * Initializes or resets training data for a vehicle based on its current position relative to the spline.
+	 * Sets up training data for a vehicle.
 	 */
-	static void SetTrainingData(struct FTrainingDataComponent& OutTrainingData, const USplineComponent* Spline, const FVector& Location, float CreationTime);
+	static void SetTrainingData(FTrainingDataComponent& OutTrainingData, const USplineComponent* Spline, const FVector& Location, float CreationTime);
 };

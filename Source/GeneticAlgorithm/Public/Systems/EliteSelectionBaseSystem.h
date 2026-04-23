@@ -106,19 +106,34 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 				return VA < VB;
 			});
 
-			// Create missing elites
-			while (OutEntities.Num() < DesiredCount)
+// Create missing elites
+		while (OutEntities.Num() < DesiredCount)
+		{
+			const entt::entity NewE = Registry.create();
+			Registry.emplace<FEliteTagComponent>(NewE, FEliteTagComponent{});
+			FFitnessComponent NewFit{};
+			NewFit.BuiltForFitnessIndex = FitnessIndex;
+			
+			// Add bounds checking for fitness array sizing
+			if (FitnessIndex >= 0)
 			{
-				const entt::entity NewE = Registry.create();
-				Registry.emplace<FEliteTagComponent>(NewE, FEliteTagComponent{});
-				FFitnessComponent NewFit{};
-				NewFit.BuiltForFitnessIndex = FitnessIndex;
 				NewFit.Fitness.SetNum(FitnessIndex + 1, EAllowShrinking::No);
-				// Initialize with neutral fitness
+// Initialize with neutral fitness
+			if (FitnessIndex >= 0 && FitnessIndex < NewFit.Fitness.Num())
+			{
 				NewFit.Fitness[FitnessIndex] = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
-				Registry.emplace<FFitnessComponent>(NewE, MoveTemp(NewFit));
-				OutEntities.Add(NewE);
 			}
+			}
+			else
+			{
+				// Handle invalid fitness index
+				NewFit.Fitness.SetNum(1, EAllowShrinking::No);
+				NewFit.Fitness[0] = 0.0f;
+			}
+			
+			Registry.emplace<FFitnessComponent>(NewE, MoveTemp(NewFit));
+			OutEntities.Add(NewE);
+		}
 			// Remove extras
 			if (OutEntities.Num() > DesiredCount)
 			{
@@ -209,18 +224,23 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 					UC.ExistingElite = EliteE;
 				}
 
-				// Add candidates to the pool
-				for (const FEntityFitness& Cand : Candidates)
-				{
-					int64 CId = Registry.get<FUniqueSolutionComponent>(Cand.Entity).Id;
-					FUniqueCandidate& UC = UniquePool.FindOrAdd(CId);
-					UC.Id = CId;
-					if (UC.SourceEntity == entt::null || (bHigherIsBetter ? (Cand.Value > UC.BestFitness) : (Cand.Value < UC.BestFitness)))
-					{
-						UC.BestFitness = Cand.Value;
-						UC.SourceEntity = Cand.Entity;
-					}
-				}
+// Add candidates to the pool
+		for (const FEntityFitness& Cand : Candidates)
+		{
+			if (Cand.Entity == entt::null || !Registry.valid(Cand.Entity))
+			{
+				continue; // Skip invalid entities
+			}
+			
+			int64 CId = Registry.get<FUniqueSolutionComponent>(Cand.Entity).Id;
+			FUniqueCandidate& UC = UniquePool.FindOrAdd(CId);
+			UC.Id = CId;
+			if (UC.SourceEntity == entt::null || (bHigherIsBetter ? (Cand.Value > UC.BestFitness) : (Cand.Value < UC.BestFitness)))
+			{
+				UC.BestFitness = Cand.Value;
+				UC.SourceEntity = Cand.Entity;
+			}
+		}
 
 				// Sort unique pool by fitness
 				TArray<FUniqueCandidate> SortedPool;
@@ -251,19 +271,27 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 					}
 					else
 					{
-						// New solution became elite. We need to repurpose an old elite or create a new one.
+// New solution became elite. We need to repurpose an old elite or create a new one.
 						entt::entity TargetElite = entt::null;
 						
 						// Try to find an elite from CurrentElites that is NOT in the new top N
 						for (int32 j = 0; j < CurrentElites.Num(); ++j)
 						{
-							if (CurrentElites[j] != entt::null && !NewEliteEntities.Contains(CurrentElites[j]))
+							// Add safety check for valid entity handle
+							if (CurrentElites[j] != entt::null && 
+								Registry.valid(CurrentElites[j]) && 
+								!NewEliteEntities.Contains(CurrentElites[j]))
 							{
 								// Check if this elite we want to repurpose is needed later in SortedPool
 								bool bNeededLater = false;
 								for (int32 k = i + 1; k < ActualEliteCount; ++k)
 								{
-									if (SortedPool[k].ExistingElite == CurrentElites[j]) { bNeededLater = true; break; }
+									if (SortedPool[k].ExistingElite != entt::null && 
+										SortedPool[k].ExistingElite == CurrentElites[j]) 
+									{ 
+										bNeededLater = true; 
+										break; 
+									}
 								}
 								if (!bNeededLater)
 								{
@@ -274,24 +302,34 @@ class GENETICALGORITHM_API UEliteSelectionBaseSystem : public UEcsSystem
 							}
 						}
 
-						if (TargetElite == entt::null)
-						{
-							TargetElite = Registry.create();
-							Registry.emplace<FEliteTagComponent>(TargetElite);
-							Registry.emplace<FUniqueSolutionComponent>(TargetElite);
-							FFitnessComponent& NewFit = Registry.emplace<FFitnessComponent>(TargetElite);
-							NewFit.BuiltForFitnessIndex = FitnessIndex;
-							NewFit.Fitness.SetNum(FitnessIndex + 1);
-						}
+if (TargetElite == entt::null)
+		{
+			TargetElite = Registry.create();
+			Registry.emplace<FEliteTagComponent>(TargetElite);
+			Registry.emplace<FUniqueSolutionComponent>(TargetElite);
+			FFitnessComponent& NewFit = Registry.emplace<FFitnessComponent>(TargetElite);
+			NewFit.BuiltForFitnessIndex = FitnessIndex;
+			
+			// Add bounds checking for fitness array sizing
+			if (FitnessIndex >= 0)
+			{
+				NewFit.Fitness.SetNum(FitnessIndex + 1, EAllowShrinking::No);
+			}
+			else
+			{
+				// Handle invalid fitness index
+				NewFit.Fitness.SetNum(1, EAllowShrinking::No);
+			}
+		}
 
-						// Update target elite
-						Registry.get<FUniqueSolutionComponent>(TargetElite).SourceId = UC.Id;
-						FFitnessComponent& Fit = Registry.get<FFitnessComponent>(TargetElite);
-						Fit.Fitness[FitnessIndex] = UC.BestFitness;
-						Fit.EliteIndex = i;
-						
-						CopyGenomeToElite(UC.SourceEntity, TargetElite, FitnessIndex);
-						NewEliteEntities.Add(TargetElite);
+// Update target elite
+		Registry.get<FUniqueSolutionComponent>(TargetElite).SourceId = UC.Id;
+		FFitnessComponent& Fit = Registry.get<FFitnessComponent>(TargetElite);
+		Fit.Fitness[FitnessIndex] = UC.BestFitness;
+		Fit.EliteIndex = i;
+		
+		CopyGenomeToElite(UC.SourceEntity, TargetElite, FitnessIndex);
+		NewEliteEntities.Add(TargetElite);
 
 						// Log promotion
 						UE_LOG(LogTemp, Log, TEXT("Promoting new elite in Pop %d with fitness %.2f (ID: %lld)"), FitnessIndex, UC.BestFitness, UC.Id);
