@@ -87,80 +87,19 @@ public:
 	}
 
 
-	// Helper: collect or create elite entities for a given fitness index.
-	// Reuses existing elites with FFitnessComponent.BuiltForFitnessIndex == FitnessIndex.
-	inline void GatherElitePool(int32 FitnessIndex, int32 DesiredCount, TArray<entt::entity>& OutEntities)
-	{
-		auto& Registry = GetRegistry();
-		OutEntities.Reset();
-		// Reuse existing elites for this index
-		auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent>();
-		for (auto E : EliteView)
-		{
-			const FFitnessComponent& Fit = EliteView.get<FFitnessComponent>(E);
-			if (Fit.BuiltForFitnessIndex == FitnessIndex)
-			{
-				OutEntities.Add(E);
-			}
-		}
-
-		// Sort existing elites so that when we compare them against candidates, 
-		// we can reliably replace the worst ones if needed.
-		OutEntities.Sort([this, &Registry, FitnessIndex](entt::entity A, entt::entity B)
-		{
-			const float VA = Registry.get<FFitnessComponent>(A).Fitness[FitnessIndex];
-			const float VB = Registry.get<FFitnessComponent>(B).Fitness[FitnessIndex];
-			if (bHigherIsBetter) { return VA > VB; }
-			return VA < VB;
-		});
-
-// Create missing elites
-		while (OutEntities.Num() < DesiredCount)
-		{
-			const entt::entity NewE = Registry.create();
-			Registry.emplace<FEliteTagComponent>(NewE, FEliteTagComponent{});
-			FFitnessComponent NewFit{};
-			NewFit.BuiltForFitnessIndex = FitnessIndex;
-			
-			// Add bounds checking for fitness array sizing
-			if (FitnessIndex >= 0)
-			{
-				NewFit.Fitness.SetNum(FitnessIndex + 1, EAllowShrinking::No);
-// Initialize with neutral fitness
-			if (FitnessIndex >= 0 && FitnessIndex < NewFit.Fitness.Num())
-			{
-				NewFit.Fitness[FitnessIndex] = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
-			}
-			}
-			else
-			{
-				// Handle invalid fitness index
-				NewFit.Fitness.SetNum(1, EAllowShrinking::No);
-				NewFit.Fitness[0] = 0.0f;
-			}
-			
-			Registry.emplace<FFitnessComponent>(NewE, MoveTemp(NewFit));
-			OutEntities.Add(NewE);
-		}
-		// Remove extras
-		if (OutEntities.Num() > DesiredCount)
-		{
-			for (int32 i = DesiredCount; i < OutEntities.Num(); ++i)
-			{
-				Registry.destroy(OutEntities[i]);
-			}
-			OutEntities.SetNum(DesiredCount, EAllowShrinking::No);
-		}
-	}
-
 	// Centralized selection flow: compute top-N per fitness index and materialize elites as separate entities.
 	// Type-specific genome copying/binding is delegated to virtual hooks implemented by derived systems.
 	void ApplySelection()
 	{
 		auto& Registry = GetRegistry();
-		
-		// 1. Gather all candidates (eligible for breeding, non-elite, not flagged for reset)
-		auto SourceView = Registry.view<FFitnessComponent, FUniqueSolutionComponent, FEligibleForBreedingTagComponent>(entt::exclude_t<FEliteTagComponent, FResetGenomeComponent>{});
+
+		// 1. Gather all candidate solutions for elite selection.
+		// We consider ALL non-elite solutions — including reset-flagged ones, since their fitness
+		// is still valid at this point (VehicleResetSystem runs AFTER elite selection and zeros it).
+		// We deliberately do NOT require FEligibleForBreedingTagComponent here: eligibility gates
+		// breeding participation, but elite selection should pick the genuinely best solutions
+		// regardless of whether they've met MinBreedAge or breeding thresholds.
+		auto SourceView = Registry.view<FFitnessComponent, FUniqueSolutionComponent>(entt::exclude_t<FEliteTagComponent>{});
 		
 		SelectionBuckets.Reset();
 		
@@ -291,22 +230,25 @@ public:
 
 				if (UC.ExistingElite != entt::null)
 				{
-					// Already an elite - check if fitness actually improved
-					FFitnessComponent& Fit = Registry.get<FFitnessComponent>(UC.ExistingElite);
-					const float OldFitness = Fit.Fitness[FitnessIndex];
-					Fit.Fitness[FitnessIndex] = UC.BestFitness;
-					Fit.EliteIndex = i;
-					NewEliteEntities.Add(UC.ExistingElite);
+				// Already an elite - check if fitness actually improved
+				FFitnessComponent& Fit = Registry.get<FFitnessComponent>(UC.ExistingElite);
+				const float OldFitness = Fit.Fitness[FitnessIndex];
+				Fit.Fitness[FitnessIndex] = UC.BestFitness;
+				Fit.EliteIndex = i;
+				NewEliteEntities.Add(UC.ExistingElite);
 
-					// Only update debug info and log when fitness genuinely improved
-					const bool bFitnessImproved = bHigherIsBetter ? (UC.BestFitness > OldFitness) : (UC.BestFitness < OldFitness);
-					if (bFitnessImproved && UC.SourceEntity != entt::null && Registry.valid(UC.SourceEntity))
-					{
-						FString SourceLabel = GetSourceEntityLabel(UC.SourceEntity);
+				// Only update debug info and log when fitness genuinely improved
+				const bool bFitnessImproved = bHigherIsBetter ? (UC.BestFitness > OldFitness) : (UC.BestFitness < OldFitness);
+				if (bFitnessImproved && UC.SourceEntity != entt::null && Registry.valid(UC.SourceEntity))
+				{
+					FString SourceLabel = GetSourceEntityLabel(UC.SourceEntity);
 
-						// Verbose logging for existing elite fitness update
-						UE_LOG(LogTemp, Log, TEXT("[ELITE UPDATE] Pop %d | EliteRank %d | Source: %s | Fitness: %.2f -> %.2f | SourceId: %lld"),
-							FitnessIndex, i, *SourceLabel, OldFitness, UC.BestFitness, UC.Id);
+					// Copy the improved genome from the source solution to the elite
+					CopyGenomeToElite(UC.SourceEntity, UC.ExistingElite, FitnessIndex);
+
+					// Verbose logging for existing elite fitness update
+					UE_LOG(LogTemp, Log, TEXT("[ELITE UPDATE] Pop %d | EliteRank %d | Source: %s | Fitness: %.2f -> %.2f | SourceId: %lld"),
+						FitnessIndex, i, *SourceLabel, OldFitness, UC.BestFitness, UC.Id);
 
 						// Update debug representation with location snapshot
 						FElitePromotionDebugComponent& PromoDebug = Registry.get_or_emplace<FElitePromotionDebugComponent>(UC.ExistingElite);
