@@ -74,6 +74,24 @@ entt::entity UTournamentSelectionSystem::RunTournament(const TArray<FEntityRefFi
 	}
 
 	// Apply selection pressure
+	// If bElitesAlwaysWin is enabled and there's an elite in the tournament, it always wins.
+	// Elites compete among themselves by fitness; non-elites can only win if no elite is present.
+	if (bElitesAlwaysWin)
+	{
+		if (Best != INDEX_NONE && Bucket[Best].bIsElite)
+		{
+			// Best is an elite - it always wins regardless of selection pressure
+			return Bucket[Best].Entity;
+		}
+		if (Second != INDEX_NONE && Bucket[Second].bIsElite)
+		{
+			// Second is an elite but Best is not - elite wins
+			return Bucket[Second].Entity;
+		}
+		// Neither is elite (or only one candidate) - fall through to normal selection
+	}
+
+	// Standard selection pressure (no elite protection or no elite in tournament)
 	const bool PickBest = (SelectionPressure >= 1.0f) || ((RngStream ? RngStream->FRand() : FMath::FRand()) <= SelectionPressure);
 	const int32 WinnerIdx = PickBest || Second == INDEX_NONE ? Best : Second;
 	return WinnerIdx != INDEX_NONE ? Bucket[WinnerIdx].Entity : entt::null;
@@ -115,6 +133,9 @@ void UTournamentSelectionSystem::Update_Implementation(float /*DeltaTime*/)
 			if (Dims <= 0) { ++Order; continue; }
 			if (GroupBuckets.Num() < Dims) { GroupBuckets.SetNum(Dims); }
 
+			// Check if this entity is an elite
+			const bool bIsElite = Registry.any_of<FEliteTagComponent>(Entity);
+
 			// Push to each group bucket according to its own index? We group by entity's BuiltForFitnessIndex
 			const int32 Group = Fit.BuiltForFitnessIndex;
 			if (Group >= 0 && Group < Dims)
@@ -123,6 +144,7 @@ void UTournamentSelectionSystem::Update_Implementation(float /*DeltaTime*/)
 				FEntityRefFitness& E = Bucket.Emplace_GetRef();
 				E.Value = Fit.Fitness[Group];
 				E.Order = Order;
+				E.bIsElite = bIsElite;
 				E.Entity = Entity;
 			}
 			// Also push to global using the same representative value when valid; otherwise skip global
@@ -131,6 +153,7 @@ void UTournamentSelectionSystem::Update_Implementation(float /*DeltaTime*/)
 				FEntityRefFitness& G = GlobalBucket.Emplace_GetRef();
 				G.Value = Fit.Fitness[Group];
 				G.Order = Order;
+				G.bIsElite = bIsElite;
 				G.Entity = Entity;
 			}
 			++Order;

@@ -53,13 +53,15 @@ void UGADebugDataSystem::Update_Implementation(float DeltaTime)
 		{
 			EliteCount++;
 			const auto& Fit = EliteView.get<FFitnessComponent>(E);
-			if (Fit.Fitness.Num() > 0)
+			// Read the fitness value for this elite's specific population index, not always [0]
+			const int32 PopIdx = Fit.BuiltForFitnessIndex;
+			if (PopIdx >= 0 && PopIdx < Fit.Fitness.Num())
 			{
-				float Val = Fit.Fitness[0];
+				float Val = Fit.Fitness[PopIdx];
 				DebugComp.EliteFitness.Add(Val);
 				CurrentEliteTotalFitness += Val;
 
-				float& PopTotal = DebugComp.PopulationTotalEliteFitness.FindOrAdd(Fit.BuiltForFitnessIndex);
+				float& PopTotal = DebugComp.PopulationTotalEliteFitness.FindOrAdd(PopIdx);
 				PopTotal += Val;
 			}
 		}

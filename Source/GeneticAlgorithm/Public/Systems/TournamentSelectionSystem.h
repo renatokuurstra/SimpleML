@@ -47,6 +47,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Selection|Tournament")
 	bool bHigherIsBetter = true;
 
+	// If true, any elite entity that enters a tournament automatically wins it.
+	// Elites still compete among themselves by fitness, but a single elite vs any
+	// non-elite always produces the elite as the winner regardless of SelectionPressure.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Selection|Tournament")
+	bool bElitesAlwaysWin = true;
+
 	// Per-parent chance to draw from the whole population (ignoring group) when selecting a parent.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Selection|Tournament", meta=(ClampMin="0.0", ClampMax="1.0"))
 	float CrossGroupParentChance = 0.1f;
@@ -66,6 +72,7 @@ private:
 	{
 		float Value = 0.0f;
 		int32 Order = 0;
+		bool bIsElite = false;
 		entt::entity Entity = entt::null;
 	};
 

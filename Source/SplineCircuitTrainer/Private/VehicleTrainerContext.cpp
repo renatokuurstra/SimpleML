@@ -106,28 +106,37 @@ void AVehicleTrainerContext::InitializeSystemsFromConfig()
 		{
 			for (auto& Element : EventData->Elements)
 			{
-				if (UVehicleEliteSelectionSystem* EliteSys = Cast<UVehicleEliteSelectionSystem>(Element.GetInterface()))
-				{
-					EliteSys->EliteCount = TrainerConfig->EliteCount;
-					EliteSys->bHigherIsBetter = TrainerConfig->bHigherIsBetter;
-				}
-				else if (UTournamentSelectionSystem* SelectionSys = Cast<UTournamentSelectionSystem>(Element.GetInterface()))
-				{
-					SelectionSys->TournamentSize = TrainerConfig->TournamentSize;
-					SelectionSys->SelectionPressure = TrainerConfig->SelectionPressure;
-					SelectionSys->bHigherIsBetter = TrainerConfig->bHigherIsBetter;
-					SelectionSys->ContextSeed = RandomSeed;
-				}
-				else if (UBreedFloatGenomesSystem* BreedSys = Cast<UBreedFloatGenomesSystem>(Element.GetInterface()))
-				{
-					BreedSys->Eta = TrainerConfig->BreedingEta;
-				}
-				else if (UMutationFloatGenomeSystem* MutationSys = Cast<UMutationFloatGenomeSystem>(Element.GetInterface()))
-				{
-					MutationSys->PerValueDeltaPercent = TrainerConfig->PerValueDeltaPercent;
-					MutationSys->RandomMutationChance = TrainerConfig->RandomMutationChance;
-					MutationSys->ContextSeed = RandomSeed;
-				}
+			if (UVehicleEliteSelectionSystem* EliteSys = Cast<UVehicleEliteSelectionSystem>(Element.GetInterface()))
+			{
+				EliteSys->EliteCount = TrainerConfig->EliteCount;
+				EliteSys->bHigherIsBetter = TrainerConfig->bHigherIsBetter;
+			}
+			else if (UTournamentSelectionSystem* SelectionSys = Cast<UTournamentSelectionSystem>(Element.GetInterface()))
+			{
+				SelectionSys->TournamentSize = TrainerConfig->TournamentSize;
+				SelectionSys->SelectionPressure = TrainerConfig->SelectionPressure;
+				SelectionSys->bHigherIsBetter = TrainerConfig->bHigherIsBetter;
+				SelectionSys->bElitesAlwaysWin = TrainerConfig->bElitesAlwaysWin;
+				SelectionSys->ContextSeed = RandomSeed;
+			}
+			else if (UBreedFloatGenomesSystem* BreedSys = Cast<UBreedFloatGenomesSystem>(Element.GetInterface()))
+			{
+				BreedSys->Eta = TrainerConfig->BreedingEta;
+				BreedSys->CrossoverProbability = TrainerConfig->CrossoverProbability;
+				BreedSys->bClampChildren = TrainerConfig->bClampChildren;
+				BreedSys->ClampMin = TrainerConfig->BreedingClampMin;
+				BreedSys->ClampMax = TrainerConfig->BreedingClampMax;
+				BreedSys->RandomSeed = RandomSeed;
+			}
+			else if (UMutationFloatGenomeSystem* MutationSys = Cast<UMutationFloatGenomeSystem>(Element.GetInterface()))
+			{
+				MutationSys->PerValueDeltaPercent = TrainerConfig->PerValueDeltaPercent;
+				MutationSys->RandomMutationChance = TrainerConfig->RandomMutationChance;
+				MutationSys->RandomResetMaxPercent = TrainerConfig->RandomResetMaxPercent;
+				MutationSys->RandomResetMin = TrainerConfig->RandomResetMin;
+				MutationSys->RandomResetMax = TrainerConfig->RandomResetMax;
+				MutationSys->ContextSeed = RandomSeed;
+			}
  			else if (USimpleMLNNFloatInitSystem* InitSys = Cast<USimpleMLNNFloatInitSystem>(Element.GetInterface()))
 				{
 					InitSys->ContextSeed = RandomSeed;

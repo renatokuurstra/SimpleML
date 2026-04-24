@@ -45,15 +45,17 @@ void UGAStalenessSystem::Update_Implementation(float DeltaTime)
 	for (auto E : EliteView)
 	{
 		const auto& Fit = EliteView.get<FFitnessComponent>(E);
-		if (Fit.Fitness.Num() > 0)
+		// Read the fitness value for this elite's specific population index
+		const int32 PopIdx = Fit.BuiltForFitnessIndex;
+		if (PopIdx >= 0 && PopIdx < Fit.Fitness.Num())
 		{
-			const float Val = Fit.Fitness[0];
+			const float Val = Fit.Fitness[PopIdx];
 			
 			// Only count non-neutral fitness
 			const float NeutralVal = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
 			if (Val != NeutralVal)
 			{
-				float& Total = CurrentPopFitness.FindOrAdd(Fit.BuiltForFitnessIndex);
+				float& Total = CurrentPopFitness.FindOrAdd(PopIdx);
 				Total += Val;
 
 				if (bHigherIsBetter ? (Val > GlobalBestFitness) : (Val < GlobalBestFitness))
@@ -165,7 +167,8 @@ void UGAStalenessSystem::Update_Implementation(float DeltaTime)
 			{
 				continue;
 			}
-			const float F = Fit.Fitness[0];
+			// Read fitness for this elite's actual population index
+			const float F = Fit.Fitness[WorstStalePop];
 			const bool bWorse = bHigherIsBetter ? (F < LocalWorstFitness) : (F > LocalWorstFitness);
 			if (LocalWorstElite == entt::null || bWorse)
 			{
@@ -180,7 +183,8 @@ void UGAStalenessSystem::Update_Implementation(float DeltaTime)
 			auto& Fit = ElitePopView.get<FFitnessComponent>(E);
 			if (Fit.BuiltForFitnessIndex == WorstStalePop && Fit.Fitness.Num() > 0)
 			{
-				Fit.Fitness[0] = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
+				// Reset fitness for this elite's actual population index
+				Fit.Fitness[WorstStalePop] = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
 			}
 		}
 

@@ -71,29 +71,71 @@ public:
 
 	// Genetic Algorithm Settings
 	
+	// ----- Selection -----
+	
+	/** Number of elite solutions preserved per population (never replaced by worse performers) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Selection")
 	int32 EliteCount = 2;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Selection")
+	/** Number of random candidates sampled per tournament when selecting parents for breeding */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Selection", meta=(ClampMin="2"))
 	int32 TournamentSize = 5;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Selection")
+	/** Probability that the best candidate wins a tournament (1.0 = always pick best, 0.0 = random) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Selection", meta=(ClampMin="0.0", ClampMax="1.0"))
 	float SelectionPressure = 0.85f;
 
+	/** If true, any elite entity entering a tournament automatically wins over non-elites */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Selection")
+	bool bElitesAlwaysWin = true;
+
+	/** If true, higher fitness values are considered better (for minimization problems set to false) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
 	bool bHigherIsBetter = true;
 
-	/** Multiplicative delta for mutation: ± this percent */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	// ----- Mutation -----
+
+	/** Per-gene multiplicative noise magnitude: each weight is perturbed by ± this percentage */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Mutation", meta=(ClampMin="0.0"))
 	float PerValueDeltaPercent = 0.02f;
 
-	/** Chance to trigger a random reset mutation on a value */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
+	/** Per-generation probability that a random hard-reset mutation occurs on a genome */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Mutation", meta=(ClampMin="0.0", ClampMax="1.0"))
 	float RandomMutationChance = 0.01f;
 
-	/** Breeding eta parameter (crossover) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Breeding")
+	/** Maximum fraction of genes that can be hard-reset when random mutation triggers (0.0-1.0) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Mutation", meta=(ClampMin="0.0", ClampMax="1.0"))
+	float RandomResetMaxPercent = 0.025f;
+
+	/** Minimum value used when hard-resetting a gene during random mutation */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Mutation")
+	float RandomResetMin = -1.0f;
+
+	/** Maximum value used when hard-resetting a gene during random mutation */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Mutation")
+	float RandomResetMax = 1.0f;
+
+	// ----- Breeding -----
+
+	/** SBX crossover distribution index: higher values produce children closer to parents (less exploration) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Breeding", meta=(ClampMin="0.0"))
 	float BreedingEta = 10.0f;
+
+	/** Probability that SBX crossover is applied per gene (otherwise gene is copied directly from one parent) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Breeding", meta=(ClampMin="0.0", ClampMax="1.0"))
+	float CrossoverProbability = 0.9f;
+
+	/** If true, child gene values after crossover are clamped to [BreedingClampMin, BreedingClampMax] */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Breeding")
+	bool bClampChildren = true;
+
+	/** Lower bound for clamping child gene values (used when bClampChildren is true) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Breeding")
+	float BreedingClampMin = -1.0f;
+
+	/** Upper bound for clamping child gene values (used when bClampChildren is true) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Breeding")
+	float BreedingClampMax = 1.0f;
 
 	/** Percentage of population (worst performers) to reset each generation */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Reset Logic")
