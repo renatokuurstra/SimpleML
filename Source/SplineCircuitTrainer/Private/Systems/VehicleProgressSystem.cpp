@@ -42,6 +42,10 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 		MinProgress = TrainerContext->TrainerConfig->MinimumProgressBetweenEvaluations;
 	}
 
+	// Pre-calculate segment count for normalized distance within segment
+	int32 NumPoints = Spline->GetNumberOfSplinePoints();
+	int32 NumSegments = NumPoints > 1 ? NumPoints - 1 : 0;
+
 	auto View = GetView<FVehicleComponent, FTrainingDataComponent>();
 	
 	for (auto Entity : View)
@@ -100,62 +104,79 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 			TrainingData.TimeSinceLastProgress += DeltaTime;
 		}
 
-		// Check if vehicle is progressing correctly along the spline
+		// ---- Segment-based progress validation ----
+		// Core invariant: MaxSegmentReached ONLY increases on confirmed forward movement.
+		// Backward movement resets all progress tracking, so the car gets zero fitness.
+
 		bool bIsProgressingCorrectly = true;
-		
+		bool bHadBackwardMovement = false;
+
 		// Only perform segment validation when we have a valid previous segment and pass count array
 		if (TrainingData.LastSplineSegment >= 0 && TrainingData.SegmentPassCount.Num() > 0)
 		{
-			// Check if this is a new segment entry
 			if (CurrentSegment != TrainingData.LastSplineSegment)
 			{
-				// If we're moving forward, increment the pass count for that segment
+				// Vehicle crossed into a new segment
 				if (CurrentSegment > TrainingData.LastSplineSegment)
 				{
-					// Normal forward progression - check if it's the expected next segment
-					if (CurrentSegment != TrainingData.LastSplineSegment + 1)
+					// Forward progression - check if it's the expected next segment
+					if (CurrentSegment == TrainingData.LastSplineSegment + 1)
 					{
-						// We skipped a segment or went backwards, which is incorrect
-						bIsProgressingCorrectly = false;
-					}
-				}
-				else if (CurrentSegment < TrainingData.LastSplineSegment)
-				{
-					// If we're going backward on a closed loop, check if it's because of wraparound
-					if (!Spline->IsClosedLoop())
-					{
-						// For non-closed loops, backward movement is invalid
-						bIsProgressingCorrectly = false;
+						// Valid forward progression: segment N -> N+1
+						TrainingData.MaxSegmentReached = FMath::Max(TrainingData.MaxSegmentReached, CurrentSegment);
+						TrainingData.SegmentPassCount[CurrentSegment]++;
 					}
 					else
 					{
-						// For closed loop, check if this is a wraparound (i.e., from last segment back to first)
-						int32 NumSegments = TrainingData.SegmentPassCount.Num();
-						if (TrainingData.LastSplineSegment == NumSegments - 1 && CurrentSegment == 0)
+						// Skipped a segment (e.g., segment 0 -> segment 5 on a closed loop going backward)
+						// This is backward movement disguised as "higher segment number"
+						bIsProgressingCorrectly = false;
+						bHadBackwardMovement = true;
+					}
+				}
+				else // CurrentSegment < TrainingData.LastSplineSegment
+				{
+					// Segment index decreased - could be valid wraparound or backward movement
+					if (Spline->IsClosedLoop())
+					{
+						// Check if this is a valid wraparound (last segment -> segment 0)
+						int32 NumSegs = TrainingData.SegmentPassCount.Num();
+						if (TrainingData.LastSplineSegment == NumSegs - 1 && CurrentSegment == 0)
 						{
-							// This is valid wraparound from last to first segment
+							// Valid wraparound - completed a full lap
+							TrainingData.LapsCompleted++;
+							TrainingData.MaxSegmentReached = FMath::Max(TrainingData.MaxSegmentReached, NumSegs - 1);
+							TrainingData.SegmentPassCount[CurrentSegment]++;
 						}
 						else
 						{
-							// Any other backward movement is invalid
+							// Backward movement on closed loop (not a valid wraparound)
 							bIsProgressingCorrectly = false;
+							bHadBackwardMovement = true;
 						}
 					}
-				}
-				
-				// Update the pass count for this segment
-				if (CurrentSegment >= 0 && CurrentSegment < TrainingData.SegmentPassCount.Num())
-				{
-					TrainingData.SegmentPassCount[CurrentSegment]++;
+					else
+					{
+						// Backward movement on open path - always invalid
+						bIsProgressingCorrectly = false;
+						bHadBackwardMovement = true;
+					}
 				}
 			}
-			else
-			{
-				// Same segment, no progression - valid if we're just staying in place or oscillating slightly
-				// No change needed to pass count or progress validation
-			}
+			// NOTE: When the car stays in the same segment, we do NOT update MaxSegmentReached.
+			// MaxSegmentReached only increases on confirmed forward segment transitions.
+			// This prevents a car that spawns near the end of the spline from getting high fitness.
 		}
-		
+
+		// If vehicle moved backward, zero out all progress tracking
+		// This ensures backward-moving cars get zero fitness
+		if (bHadBackwardMovement)
+		{
+			TrainingData.MaxSegmentReached = 0;
+			TrainingData.LapsCompleted = 0;
+			TrainingData.NormalizedDistanceInSegment = 0.0f;
+		}
+
 		// If vehicle is not progressing correctly, mark it for reset
 		if (!bIsProgressingCorrectly)
 		{
@@ -166,6 +187,34 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 			{
 				Registry.emplace<FResetGenomeComponent>(Entity, FResetGenomeComponent{ UVehicleLibrary::ReasonIncorrectProgress });
 			}
+		}
+
+		// Calculate normalized distance within current segment for fitness calculation
+		if (NumSegments > 0 && CurrentSegment >= 0 && CurrentSegment < NumSegments)
+		{
+			// Get the start distance of the current segment
+			float SegmentStartDistance = Spline->GetDistanceAlongSplineAtLocation(
+				Spline->GetLocationAtSplinePoint(CurrentSegment, ESplineCoordinateSpace::World), ESplineCoordinateSpace::World);
+			
+			// Get the end distance of the current segment
+			int32 NextSegment = FMath::Min(CurrentSegment + 1, NumSegments - 1);
+			float SegmentEndDistance = Spline->GetDistanceAlongSplineAtLocation(
+				Spline->GetLocationAtSplinePoint(NextSegment, ESplineCoordinateSpace::World), ESplineCoordinateSpace::World);
+			
+			float SegmentLength = SegmentEndDistance - SegmentStartDistance;
+			if (SegmentLength > 0.0f)
+			{
+				float DistanceInSegment = CurrentSplineDistance - SegmentStartDistance;
+				TrainingData.NormalizedDistanceInSegment = FMath::Clamp(DistanceInSegment / SegmentLength, 0.0f, 1.0f);
+			}
+			else
+			{
+				TrainingData.NormalizedDistanceInSegment = 0.0f;
+			}
+		}
+		else
+		{
+			TrainingData.NormalizedDistanceInSegment = 0.0f;
 		}
 
 		TrainingData.LastSplineDistance = CurrentSplineDistance;

@@ -8,8 +8,10 @@
 
 /**
  * UVehicleFitnessSystem
- * Assigns fitness to entities based on their training data.
- * Specifically, it cubes the DistanceTraveled to strongly favor distance in selection.
+ * Assigns fitness to entities based on segment-based progress tracking.
+ * Uses an exponential formula: Fitness = 2^MaxSegmentReached + NormalizedDistanceInSegment (+ lap bonus for closed loops).
+ * This prevents backward movement from increasing fitness since MaxSegmentReached is monotonic.
+ * Fitness is always recalculated, never accumulated/stacked.
  */
 UCLASS()
 class SPLINECIRCUITTRAINER_API UVehicleFitnessSystem : public UEcsSystem

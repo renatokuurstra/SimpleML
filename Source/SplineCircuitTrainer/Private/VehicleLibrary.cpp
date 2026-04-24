@@ -50,6 +50,9 @@ void UVehicleLibrary::SetTrainingData(FTrainingDataComponent& OutTrainingData, c
 	OutTrainingData.MaxDistanceTraveled = 0.0f;
 	OutTrainingData.TimeSinceLastProgress = 0.0f;
 	OutTrainingData.CreationTime = CreationTime;
+	OutTrainingData.MaxSegmentReached = 0;
+	OutTrainingData.LapsCompleted = 0;
+	OutTrainingData.NormalizedDistanceInSegment = 0.0f;
 
 	if (Spline)
 	{

@@ -51,6 +51,9 @@ void UVehicleResetSystem::Update_Implementation(float DeltaTime)
 			// Reset training data
 			UVehicleLibrary::SetTrainingData(TrainingData, Spline, ResetLocation, GetContext()->GetWorld()->GetTimeSeconds());
 
+			// Also reset segment pass count array (SetTrainingData doesn't touch this)
+			TrainingData.SegmentPassCount.Init(0, TrainingData.SegmentPassCount.Num());
+
 			// Reset fitness score
 			if (FFitnessComponent* FitComp = GetRegistry().try_get<FFitnessComponent>(Entity))
 			{
