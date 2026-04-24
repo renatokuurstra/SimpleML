@@ -101,12 +101,14 @@ void UGADebugDataSystem::Update_Implementation(float DeltaTime)
 			if (Registry.valid(ParentA) && Registry.any_of<FFitnessComponent>(ParentA))
 			{
 				const auto& Fit = Registry.get<FFitnessComponent>(ParentA);
-				if (Fit.Fitness.Num() > 0) FitA = Fit.Fitness[0];
+				const int32 PopIdx = Fit.BuiltForFitnessIndex;
+				if (PopIdx >= 0 && PopIdx < Fit.Fitness.Num()) FitA = Fit.Fitness[PopIdx];
 			}
 			if (Registry.valid(ParentB) && Registry.any_of<FFitnessComponent>(ParentB))
 			{
 				const auto& Fit = Registry.get<FFitnessComponent>(ParentB);
-				if (Fit.Fitness.Num() > 0) FitB = Fit.Fitness[0];
+				const int32 PopIdx = Fit.BuiltForFitnessIndex;
+				if (PopIdx >= 0 && PopIdx < Fit.Fitness.Num()) FitB = Fit.Fitness[PopIdx];
 			}
 
 			DebugComp.BreedingPairsFitness.Add(FitA);
@@ -124,7 +126,8 @@ void UGADebugDataSystem::Update_Implementation(float DeltaTime)
 	for (auto E : PopView)
 	{
 		const auto& Fit = PopView.get<FFitnessComponent>(E);
-		float CurrentFit = (Fit.Fitness.Num() > 0) ? Fit.Fitness[0] : 0.0f;
+		const int32 PopIdx = Fit.BuiltForFitnessIndex;
+		float CurrentFit = (PopIdx >= 0 && PopIdx < Fit.Fitness.Num()) ? Fit.Fitness[PopIdx] : 0.0f;
 		
 		if (!Registry.any_of<FEliteTagComponent>(E))
 		{

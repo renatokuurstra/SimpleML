@@ -117,6 +117,7 @@ void AVehicleTrainerContext::InitializeSystemsFromConfig()
 				SelectionSys->SelectionPressure = TrainerConfig->SelectionPressure;
 				SelectionSys->bHigherIsBetter = TrainerConfig->bHigherIsBetter;
 				SelectionSys->bElitesAlwaysWin = TrainerConfig->bElitesAlwaysWin;
+				SelectionSys->CrossGroupParentChance = TrainerConfig->CrossGroupParentChance;
 				SelectionSys->ContextSeed = RandomSeed;
 			}
 			else if (UBreedFloatGenomesSystem* BreedSys = Cast<UBreedFloatGenomesSystem>(Element.GetInterface()))

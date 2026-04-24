@@ -93,6 +93,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm")
 	bool bHigherIsBetter = true;
 
+	/** Per-parent chance to draw from the whole population instead of just the matching group when selecting parents (0.0 = same group only, 1.0 = always global) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Genetic Algorithm|Selection", meta=(ClampMin="0.0", ClampMax="1.0"))
+	float CrossGroupParentChance = 0.1f;
+
 	// ----- Mutation -----
 
 	/** Per-gene multiplicative noise magnitude: each weight is perturbed by ± this percentage */

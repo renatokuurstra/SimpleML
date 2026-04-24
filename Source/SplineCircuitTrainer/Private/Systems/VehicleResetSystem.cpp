@@ -17,6 +17,7 @@ UVehicleResetSystem::UVehicleResetSystem()
 	RegisterComponent<FTrainingDataComponent>();
 	RegisterComponent<FFitnessComponent>();
 	RegisterComponent<FEligibleForBreedingTagComponent>();
+	RegisterComponent<FUniqueSolutionComponent>();
 }
 
 void UVehicleResetSystem::Update_Implementation(float DeltaTime)
@@ -33,12 +34,13 @@ void UVehicleResetSystem::Update_Implementation(float DeltaTime)
 		return;
 	}
 
-	auto View = GetView<FVehicleComponent, FResetGenomeComponent, FTrainingDataComponent>();
+	auto View = GetView<FVehicleComponent, FResetGenomeComponent, FTrainingDataComponent, FUniqueSolutionComponent>();
 
 	for (auto Entity : View)
 	{
 		const FVehicleComponent& VehicleComp = View.get<FVehicleComponent>(Entity);
 		FTrainingDataComponent& TrainingData = View.get<FTrainingDataComponent>(Entity);
+		FUniqueSolutionComponent& UniqueComp = View.get<FUniqueSolutionComponent>(Entity);
 
 		if (VehicleComp.VehiclePawn)
 		{
@@ -62,6 +64,11 @@ void UVehicleResetSystem::Update_Implementation(float DeltaTime)
 					F = 0.0f;
 				}
 			}
+
+			// Assign a new unique ID so that any elite entity still referencing the old ID
+			// via SourceId will no longer match this entity. This prevents elites from being
+			// updated with fitness data from a completely new "life" of the pooled vehicle.
+			UniqueComp.Id = FUniqueSolutionComponent::GenerateNewId();
 
 			// Remove eligibility tag
 			GetRegistry().remove<FEligibleForBreedingTagComponent>(Entity);

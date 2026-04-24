@@ -55,55 +55,101 @@ void UVehicleTrainerDebugSystem::Update_Implementation(float DeltaTime)
 
 	// Compute per-population elite fitness directly from elite entities
 	// (more reliable than relying on PopulationTotalEliteFitness map)
+	// Throttled to once per second to avoid log spam
 	{
-		entt::registry& Registry = GetRegistry();
-		auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent>();
-
-		// Group elites by BuiltForFitnessIndex and sum their fitness
-		TMap<int32, float> PerPopEliteFitness;
-		TMap<int32, int32> PerPopEliteCount;
-
-		for (auto E : EliteView)
+		EliteFitnessLogTimer += DeltaTime;
+		if (EliteFitnessLogTimer < EliteFitnessLogInterval)
 		{
-			const FFitnessComponent& Fit = EliteView.get<FFitnessComponent>(E);
-			const int32 PopIdx = Fit.BuiltForFitnessIndex;
-			if (PopIdx >= 0 && Fit.Fitness.IsValidIndex(PopIdx))
+			// Still update cached data every tick, but skip logging
+			entt::registry& Registry = GetRegistry();
+			auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent>();
+
+			TMap<int32, float> PerPopEliteFitness;
+			TMap<int32, int32> PerPopEliteCount;
+
+			for (auto E : EliteView)
 			{
-				PerPopEliteFitness.FindOrAdd(PopIdx) += Fit.Fitness[PopIdx];
-				PerPopEliteCount.FindOrAdd(PopIdx)++;
+				const FFitnessComponent& Fit = EliteView.get<FFitnessComponent>(E);
+				const int32 PopIdx = Fit.BuiltForFitnessIndex;
+				if (PopIdx >= 0 && Fit.Fitness.IsValidIndex(PopIdx))
+				{
+					// Skip neutral fitness values (not yet evaluated)
+					const float Val = Fit.Fitness[PopIdx];
+					const float NeutralVal = TrainerContext->TrainerConfig->bHigherIsBetter ? -MAX_FLT : MAX_FLT;
+					if (Val != NeutralVal)
+					{
+						PerPopEliteFitness.FindOrAdd(PopIdx) += Val;
+						PerPopEliteCount.FindOrAdd(PopIdx)++;
+					}
+				}
+			}
+
+			// Update the debug component's map so other consumers get the data
+			if (PerPopEliteFitness.Num() > 0)
+			{
+				FGeneticAlgorithmDebugComponent& MutableDebugComp = const_cast<FGeneticAlgorithmDebugComponent&>(DebugComp);
+				MutableDebugComp.PopulationTotalEliteFitness = PerPopEliteFitness;
 			}
 		}
-
-		if (PerPopEliteFitness.Num() > 0)
+		else
 		{
-			FString LogStr = FString::Printf(TEXT("[ELITE FITNESS]"));
-			float OverallTotal = 0.0f;
+			EliteFitnessLogTimer = 0.0f;
 
-			TArray<int32> PopIndices;
-			PerPopEliteFitness.GetKeys(PopIndices);
-			PopIndices.Sort();
+			entt::registry& Registry = GetRegistry();
+			auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent>();
 
-			for (int32 PopIdx : PopIndices)
+			// Group elites by BuiltForFitnessIndex and sum their fitness
+			TMap<int32, float> PerPopEliteFitness;
+			TMap<int32, int32> PerPopEliteCount;
+
+			for (auto E : EliteView)
 			{
-				const float Val = PerPopEliteFitness[PopIdx];
-				const int32 Count = PerPopEliteCount.FindRef(PopIdx);
-				LogStr += FString::Printf(TEXT(" Pop%d(cnt=%d): %.2f |"), PopIdx, Count, Val);
-				OverallTotal += Val;
+				const FFitnessComponent& Fit = EliteView.get<FFitnessComponent>(E);
+				const int32 PopIdx = Fit.BuiltForFitnessIndex;
+				if (PopIdx >= 0 && Fit.Fitness.IsValidIndex(PopIdx))
+				{
+					// Skip neutral fitness values (not yet evaluated)
+					const float Val = Fit.Fitness[PopIdx];
+					const float NeutralVal = TrainerContext->TrainerConfig->bHigherIsBetter ? -MAX_FLT : MAX_FLT;
+					if (Val != NeutralVal)
+					{
+						PerPopEliteFitness.FindOrAdd(PopIdx) += Val;
+						PerPopEliteCount.FindOrAdd(PopIdx)++;
+					}
+				}
 			}
-			LogStr += FString::Printf(TEXT(" TOTAL: %.2f"), OverallTotal);
 
-			UE_LOG(LogTemp, Log, TEXT("%s"), *LogStr);
-
-			// Update historical data
-			FGeneticAlgorithmDebugComponent& MutableDebugComp = const_cast<FGeneticAlgorithmDebugComponent&>(DebugComp);
-			MutableDebugComp.HistoricalTotalEliteFitness.Add(OverallTotal);
-			if (MutableDebugComp.HistoricalTotalEliteFitness.Num() > MutableDebugComp.MaxHistoryLength)
+			if (PerPopEliteFitness.Num() > 0)
 			{
-				MutableDebugComp.HistoricalTotalEliteFitness.RemoveAt(0);
-			}
+				FString LogStr = FString::Printf(TEXT("[ELITE FITNESS]"));
+				float OverallTotal = 0.0f;
 
-			// Also update the debug component's map so other consumers get the data
-			MutableDebugComp.PopulationTotalEliteFitness = PerPopEliteFitness;
+				TArray<int32> PopIndices;
+				PerPopEliteFitness.GetKeys(PopIndices);
+				PopIndices.Sort();
+
+				for (int32 PopIdx : PopIndices)
+				{
+					const float Val = PerPopEliteFitness[PopIdx];
+					const int32 Count = PerPopEliteCount.FindRef(PopIdx);
+					LogStr += FString::Printf(TEXT(" Pop%d(cnt=%d): %.2f |"), PopIdx, Count, Val);
+					OverallTotal += Val;
+				}
+				LogStr += FString::Printf(TEXT(" TOTAL: %.2f"), OverallTotal);
+
+				UE_LOG(LogTemp, Log, TEXT("%s"), *LogStr);
+
+				// Update historical data
+				FGeneticAlgorithmDebugComponent& MutableDebugComp = const_cast<FGeneticAlgorithmDebugComponent&>(DebugComp);
+				MutableDebugComp.HistoricalTotalEliteFitness.Add(OverallTotal);
+				if (MutableDebugComp.HistoricalTotalEliteFitness.Num() > MutableDebugComp.MaxHistoryLength)
+				{
+					MutableDebugComp.HistoricalTotalEliteFitness.RemoveAt(0);
+				}
+
+				// Also update the debug component's map so other consumers get the data
+				MutableDebugComp.PopulationTotalEliteFitness = PerPopEliteFitness;
+			}
 		}
 	}
 

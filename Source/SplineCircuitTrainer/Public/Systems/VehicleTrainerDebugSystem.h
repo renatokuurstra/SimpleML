@@ -27,6 +27,10 @@ private:
 
 	FTimerHandle DebugTimerHandle;
 
+	// Throttle for elite fitness logging (once per second max)
+	float EliteFitnessLogTimer = 0.0f;
+	static constexpr float EliteFitnessLogInterval = 1.0f;
+
 	// Cached data for visualization
 	int32 CachedEliteCount = 0;
 	TArray<float> CachedEliteFitness;

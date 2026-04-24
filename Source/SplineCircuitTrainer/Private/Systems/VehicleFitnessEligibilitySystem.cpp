@@ -34,19 +34,20 @@ void UVehicleFitnessEligibilitySystem::Update_Implementation(float DeltaTime)
 		GetRegistry().emplace<FEligibleForBreedingTagComponent>(Entity);
 	}
 
-	// 2. Find the highest fitness overall (including elites and currently alive entities)
-	float MaxFitness = -MAX_FLT;
+	// Find the highest fitness per population index
+	TMap<int32, float> MaxFitnessPerPop;
 	auto AllFitnessView = GetView<FFitnessComponent>();
 
 	for (auto Entity : AllFitnessView)
 	{
 		const FFitnessComponent& Fit = AllFitnessView.get<FFitnessComponent>(Entity);
-		// Assuming we care about the first fitness index (index 0) for eligibility
-		if (Fit.Fitness.Num() > 0)
+		const int32 PopIdx = Fit.BuiltForFitnessIndex;
+		if (PopIdx >= 0 && PopIdx < Fit.Fitness.Num())
 		{
-			if (Fit.Fitness[0] > MaxFitness)
+			float& PopMax = MaxFitnessPerPop.FindOrAdd(PopIdx);
+			if (Fit.Fitness[PopIdx] > PopMax)
 			{
-				MaxFitness = Fit.Fitness[0];
+				PopMax = Fit.Fitness[PopIdx];
 			}
 		}
 	}
@@ -96,7 +97,14 @@ void UVehicleFitnessEligibilitySystem::Update_Implementation(float DeltaTime)
 			continue;
 		}
 
-		float EntityFitness = (FitComp.Fitness.Num() > 0) ? FitComp.Fitness[0] : -MAX_FLT;
+		const int32 PopIdx = FitComp.BuiltForFitnessIndex;
+		float MaxFitness = -MAX_FLT;
+		if (PopIdx >= 0 && PopIdx < FitComp.Fitness.Num())
+		{
+			MaxFitness = MaxFitnessPerPop.FindRef(PopIdx);
+		}
+
+		float EntityFitness = (PopIdx >= 0 && PopIdx < FitComp.Fitness.Num()) ? FitComp.Fitness[PopIdx] : -MAX_FLT;
 
 		// Eligibility check:
 		// If MaxFitness is still very low, we might want a minimum threshold or just let them through if they lived long enough.
@@ -129,7 +137,14 @@ void UVehicleFitnessEligibilitySystem::Update_Implementation(float DeltaTime)
 			continue;
 		}
 
-		float EntityFitness = (FitComp.Fitness.Num() > 0) ? FitComp.Fitness[0] : -MAX_FLT;
+		const int32 PopIdx = FitComp.BuiltForFitnessIndex;
+		float MaxFitness = -MAX_FLT;
+		if (PopIdx >= 0 && PopIdx < FitComp.Fitness.Num())
+		{
+			MaxFitness = MaxFitnessPerPop.FindRef(PopIdx);
+		}
+
+		float EntityFitness = (PopIdx >= 0 && PopIdx < FitComp.Fitness.Num()) ? FitComp.Fitness[PopIdx] : -MAX_FLT;
 
 		bool bPassActive = true;
 		if (MaxFitness > -MAX_FLT)
