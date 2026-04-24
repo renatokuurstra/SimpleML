@@ -12,7 +12,7 @@
 #include "Systems/VehicleResetFlagSystem.h"
 #include "Systems/VehicleFitnessSystem.h"
 #include "Systems/VehicleFitnessEligibilitySystem.h"
-#include "Systems/EliteSelectionFloatSystem.h"
+#include "Systems/VehicleEliteSelectionSystem.h"
 #include "Systems/TournamentSelectionSystem.h"
 #include "Systems/BreedFloatGenomesSystem.h"
 #include "Systems/MutationFloatGenomeSystem.h"
@@ -58,7 +58,7 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleFitnessEligibilitySystem>("FitnessEligibilitySys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleFitnessSystem>("FitnessSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UGAStalenessSystem>("StalenessSys"));
-	GAEvent.Elements.Add(CreateDefaultSubobject<UEliteSelectionFloatSystem>("EliteSys"));
+	GAEvent.Elements.Add(CreateDefaultSubobject<UVehicleEliteSelectionSystem>("EliteSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UTournamentSelectionSystem>("SelectionSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UBreedFloatGenomesSystem>("BreedSys"));
 	GAEvent.Elements.Add(CreateDefaultSubobject<UMutationFloatGenomeSystem>("MutationSys"));
@@ -106,7 +106,7 @@ void AVehicleTrainerContext::InitializeSystemsFromConfig()
 		{
 			for (auto& Element : EventData->Elements)
 			{
-				if (UEliteSelectionFloatSystem* EliteSys = Cast<UEliteSelectionFloatSystem>(Element.GetInterface()))
+				if (UVehicleEliteSelectionSystem* EliteSys = Cast<UVehicleEliteSelectionSystem>(Element.GetInterface()))
 				{
 					EliteSys->EliteCount = TrainerConfig->EliteCount;
 					EliteSys->bHigherIsBetter = TrainerConfig->bHigherIsBetter;

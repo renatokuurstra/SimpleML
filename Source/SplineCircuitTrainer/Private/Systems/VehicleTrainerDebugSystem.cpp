@@ -2,6 +2,7 @@
 
 #include "Systems/VehicleTrainerDebugSystem.h"
 #include "Components/GenomeComponents.h"
+#include "Components/EliteComponents.h"
 #include "VehicleTrainerContext.h"
 #include "VehicleTrainerConfig.h"
 #include "SlateIM.h"
@@ -52,31 +53,58 @@ void UVehicleTrainerDebugSystem::Update_Implementation(float DeltaTime)
 	CachedAllSolutionsFitness = DebugComp.AllSolutionsFitness;
 	CachedResetCount = DebugComp.ResetCount;
 
-	if (DebugComp.PopulationTotalEliteFitness.Num() > 0)
+	// Compute per-population elite fitness directly from elite entities
+	// (more reliable than relying on PopulationTotalEliteFitness map)
 	{
-		FString LogStr = FString::Printf(TEXT("EU GA Evaluation: "));
-		float OverallTotal = 0.0f;
-		
-		// Sort keys to ensure consistent logging order
-		TArray<int32> PopIndices;
-		DebugComp.PopulationTotalEliteFitness.GetKeys(PopIndices);
-		PopIndices.Sort();
+		entt::registry& Registry = GetRegistry();
+		auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent>();
 
-		for (int32 PopIdx : PopIndices)
+		// Group elites by BuiltForFitnessIndex and sum their fitness
+		TMap<int32, float> PerPopEliteFitness;
+		TMap<int32, int32> PerPopEliteCount;
+
+		for (auto E : EliteView)
 		{
-			float Val = DebugComp.PopulationTotalEliteFitness[PopIdx];
-			LogStr += FString::Printf(TEXT("[Pop %d: %.2f] "), PopIdx, Val);
-			OverallTotal += Val;
+			const FFitnessComponent& Fit = EliteView.get<FFitnessComponent>(E);
+			const int32 PopIdx = Fit.BuiltForFitnessIndex;
+			if (PopIdx >= 0 && Fit.Fitness.IsValidIndex(PopIdx))
+			{
+				PerPopEliteFitness.FindOrAdd(PopIdx) += Fit.Fitness[PopIdx];
+				PerPopEliteCount.FindOrAdd(PopIdx)++;
+			}
 		}
 
-		FGeneticAlgorithmDebugComponent& MutableDebugComp = const_cast<FGeneticAlgorithmDebugComponent&>(DebugComp);
-		MutableDebugComp.HistoricalTotalEliteFitness.Add(OverallTotal);
-		if (MutableDebugComp.HistoricalTotalEliteFitness.Num() > MutableDebugComp.MaxHistoryLength)
+		if (PerPopEliteFitness.Num() > 0)
 		{
-			MutableDebugComp.HistoricalTotalEliteFitness.RemoveAt(0);
-		}
+			FString LogStr = FString::Printf(TEXT("[ELITE FITNESS]"));
+			float OverallTotal = 0.0f;
 
-		UE_LOG(LogTemp, Log, TEXT("%s"), *LogStr);
+			TArray<int32> PopIndices;
+			PerPopEliteFitness.GetKeys(PopIndices);
+			PopIndices.Sort();
+
+			for (int32 PopIdx : PopIndices)
+			{
+				const float Val = PerPopEliteFitness[PopIdx];
+				const int32 Count = PerPopEliteCount.FindRef(PopIdx);
+				LogStr += FString::Printf(TEXT(" Pop%d(cnt=%d): %.2f |"), PopIdx, Count, Val);
+				OverallTotal += Val;
+			}
+			LogStr += FString::Printf(TEXT(" TOTAL: %.2f"), OverallTotal);
+
+			UE_LOG(LogTemp, Log, TEXT("%s"), *LogStr);
+
+			// Update historical data
+			FGeneticAlgorithmDebugComponent& MutableDebugComp = const_cast<FGeneticAlgorithmDebugComponent&>(DebugComp);
+			MutableDebugComp.HistoricalTotalEliteFitness.Add(OverallTotal);
+			if (MutableDebugComp.HistoricalTotalEliteFitness.Num() > MutableDebugComp.MaxHistoryLength)
+			{
+				MutableDebugComp.HistoricalTotalEliteFitness.RemoveAt(0);
+			}
+
+			// Also update the debug component's map so other consumers get the data
+			MutableDebugComp.PopulationTotalEliteFitness = PerPopEliteFitness;
+		}
 	}
 
 	// Draw Elite Promotion Debug
@@ -93,19 +121,8 @@ void UVehicleTrainerDebugSystem::Update_Implementation(float DeltaTime)
 			continue;
 		}
 
-		// Try to update location if we have a source entity with a pawn
-		if (PromoComp.SourceEntity != entt::null && Registry.valid(PromoComp.SourceEntity))
-		{
-			if (Registry.all_of<FVehicleComponent>(PromoComp.SourceEntity))
-			{
-				const FVehicleComponent& Vehicle = Registry.get<FVehicleComponent>(PromoComp.SourceEntity);
-				if (Vehicle.VehiclePawn)
-				{
-					PromoComp.Location = Vehicle.VehiclePawn->GetActorLocation();
-				}
-			}
-		}
-
+		// Use the stored location snapshot (not dynamically looked up)
+		// This prevents dots from following reset vehicles to the spawn point
 		if (PromoComp.Location != FVector::ZeroVector)
 		{
 			DrawDebugPoint(GetContext()->GetWorld(), PromoComp.Location, 50.0f, FColor::Black, false, 20.0f, 0);

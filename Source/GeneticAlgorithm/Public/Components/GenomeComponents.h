@@ -124,6 +124,10 @@ struct GENETICALGORITHM_API FElitePromotionDebugComponent
 
 	// The source entity that was promoted (optional)
 	entt::entity SourceEntity = entt::null;
+
+	// Human-readable label for the source (e.g. pawn actor name) — set at promotion/update time
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneticAlgorithm|Debug")
+	FString SourceLabel;
 };
 
 USTRUCT(BlueprintType)
