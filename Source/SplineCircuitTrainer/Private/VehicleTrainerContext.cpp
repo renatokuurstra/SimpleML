@@ -163,11 +163,7 @@ void AVehicleTrainerContext::BeginPlay()
 	// Pre-warm nuke cooldown so no population can be nuked immediately on startup
 	if (TrainerConfig)
 	{
-		const float NowTime = GetWorld()->GetTimeSeconds();
-		for (int32 i = 0; i < TrainerConfig->NumPopulations; ++i)
-		{
-			NextNukeAvailableTimePerPopulation.FindOrAdd(i) = NowTime + TrainerConfig->StalenessCooldown;
-		}
+		NextNukeAvailableTime = GetWorld()->GetTimeSeconds() + TrainerConfig->StalenessCooldown;
 	}
 
 	// Bind H key for toggling debug UI

@@ -83,14 +83,14 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 					else if (Reason == UVehicleLibrary::ReasonIncorrectProgress) Color = FColor::White; // Use white for incorrect progress
 				}
 
-				DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, Color, false, Duration, 0);
+				DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 20.0f, Color, false, Duration, 0);
 
 				if (Registry.all_of<FUniqueSolutionComponent>(Entity))
 				{
 					int64 MyId = Registry.get<FUniqueSolutionComponent>(Entity).Id;
 					if (EliteSourceIds.Contains(MyId))
 					{
-						DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 50.0f, FColor::Black, false, 20.0f, 0);
+						DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 20.0f, FColor::Emerald, false, 20.0f, 0);
 					}
 				}
 			}

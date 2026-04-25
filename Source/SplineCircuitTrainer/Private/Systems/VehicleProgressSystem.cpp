@@ -168,11 +168,13 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 			// This prevents a car that spawns near the end of the spline from getting high fitness.
 		}
 
-		// If vehicle moved backward, zero out all progress tracking
-		// This ensures backward-moving cars get zero fitness
+		// If vehicle moved backward, penalize progress tracking but allow recovery.
+		// Setting MaxSegmentReached to the current segment (not 0) prevents a permanent
+		// trap: if the car is at segment N and we zero it, the car can never recover
+		// unless it advances to segment N+1 — which may be impossible near the spline end.
 		if (bHadBackwardMovement)
 		{
-			TrainingData.MaxSegmentReached = 0;
+			TrainingData.MaxSegmentReached = CurrentSegment;
 			TrainingData.LapsCompleted = 0;
 			TrainingData.NormalizedDistanceInSegment = 0.0f;
 		}
@@ -189,28 +191,15 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 			}
 		}
 
-		// Calculate normalized distance within current segment for fitness calculation
+		// Calculate normalized distance within current segment for fitness calculation.
+		// Use the fractional part of the input key — this is the exact fraction of
+		// progress within the current segment. The previous approach using
+		// GetDistanceAlongSplineAtLocation was broken on closed loops because it finds
+		// the *closest* point on the spline, which can be a different segment entirely.
 		if (NumSegments > 0 && CurrentSegment >= 0 && CurrentSegment < NumSegments)
 		{
-			// Get the start distance of the current segment
-			float SegmentStartDistance = Spline->GetDistanceAlongSplineAtLocation(
-				Spline->GetLocationAtSplinePoint(CurrentSegment, ESplineCoordinateSpace::World), ESplineCoordinateSpace::World);
-			
-			// Get the end distance of the current segment
-			int32 NextSegment = FMath::Min(CurrentSegment + 1, NumSegments - 1);
-			float SegmentEndDistance = Spline->GetDistanceAlongSplineAtLocation(
-				Spline->GetLocationAtSplinePoint(NextSegment, ESplineCoordinateSpace::World), ESplineCoordinateSpace::World);
-			
-			float SegmentLength = SegmentEndDistance - SegmentStartDistance;
-			if (SegmentLength > 0.0f)
-			{
-				float DistanceInSegment = CurrentSplineDistance - SegmentStartDistance;
-				TrainingData.NormalizedDistanceInSegment = FMath::Clamp(DistanceInSegment / SegmentLength, 0.0f, 1.0f);
-			}
-			else
-			{
-				TrainingData.NormalizedDistanceInSegment = 0.0f;
-			}
+			TrainingData.NormalizedDistanceInSegment = FMath::Clamp(
+				CurrentInputKey - static_cast<float>(CurrentSegment), 0.0f, 1.0f);
 		}
 		else
 		{

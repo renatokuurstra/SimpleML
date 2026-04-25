@@ -35,9 +35,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trainer")
 	int32 ContextIndex = -1;
 
-	/** Next time a population is eligible for a nuke operation. Key is PopulationIndex. */
+	/** Next time a nuke operation is eligible globally. Single cooldown across all populations. */
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Trainer")
-	TMap<int32, float> NextNukeAvailableTimePerPopulation;
+	float NextNukeAvailableTime = 0.0f;
 
 	/** Helper function to retrieve the spline component from the CircuitActor */
 	UFUNCTION(BlueprintCallable, Category = "Trainer")

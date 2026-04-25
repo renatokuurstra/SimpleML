@@ -5,6 +5,7 @@
 #include "VehicleTrainerConfig.h"
 #include "Components/GenomeComponents.h"
 #include "Components/EliteComponents.h"
+#include "Components/NetworkComponent.h"
 
 UGAStalenessSystem::UGAStalenessSystem()
 {
@@ -12,6 +13,7 @@ UGAStalenessSystem::UGAStalenessSystem()
 	RegisterComponent<FEliteTagComponent>();
 	RegisterComponent<FResetGenomeComponent>();
 	RegisterComponent<FGenomeFloatViewComponent>();
+	RegisterComponent<FNeuralNetworkFloat>();
 }
 
 void UGAStalenessSystem::Update_Implementation(float DeltaTime)
@@ -24,8 +26,7 @@ void UGAStalenessSystem::Update_Implementation(float DeltaTime)
 
 	const UVehicleTrainerConfig* Config = TrainerContext->TrainerConfig;
 
-	// If the population is only 1, the staleness system (nuke) doesn't make sense as there is no 
-	// diversity to maintain and no point in injecting pioneers into a single-slot pool.
+	// Staleness system only makes sense with multiple populations
 	if (Config->NumPopulations <= 1)
 	{
 		return;
@@ -35,22 +36,31 @@ void UGAStalenessSystem::Update_Implementation(float DeltaTime)
 	const float CurrentTime = TrainerContext->GetWorld()->GetTimeSeconds();
 	const bool bHigherIsBetter = Config->bHigherIsBetter;
 
-	// 1. Gather total elite fitness per population
+	// -----------------------------------------------------------------------
+	// 0. Global cooldown -- no nuke allowed until timer expires
+	// -----------------------------------------------------------------------
+	if (CurrentTime < TrainerContext->NextNukeAvailableTime)
+	{
+		return;
+	}
+
+	// -----------------------------------------------------------------------
+	// 1. Gather total elite fitness per population + find global best elite
+	// -----------------------------------------------------------------------
 	TMap<int32, float> CurrentPopFitness;
 	auto EliteView = Registry.view<FEliteTagComponent, FFitnessComponent>();
-	
+
 	entt::entity GlobalBestElite = entt::null;
 	float GlobalBestFitness = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
 
 	for (auto E : EliteView)
 	{
 		const auto& Fit = EliteView.get<FFitnessComponent>(E);
-		// Read the fitness value for this elite's specific population index
 		const int32 PopIdx = Fit.BuiltForFitnessIndex;
 		if (PopIdx >= 0 && PopIdx < Fit.Fitness.Num())
 		{
 			const float Val = Fit.Fitness[PopIdx];
-			
+
 			// Only count non-neutral fitness
 			const float NeutralVal = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
 			if (Val != NeutralVal)
@@ -66,7 +76,7 @@ void UGAStalenessSystem::Update_Implementation(float DeltaTime)
 			}
 		}
 	}
-	
+
 	// Ensure all populations are accounted for (even if they have no valid elites)
 	for (int32 i = 0; i < Config->NumPopulations; ++i)
 	{
@@ -76,153 +86,186 @@ void UGAStalenessSystem::Update_Implementation(float DeltaTime)
 		}
 	}
 
-	// 2. Evaluate staleness per population
-	TArray<int32> StalePopulations;
-	for (auto& It : CurrentPopFitness)
+	// -----------------------------------------------------------------------
+	// 2. Find the population with the LOWEST total elite fitness
+	// -----------------------------------------------------------------------
+	int32 LowestPopIdx = -1;
+	float LowestPopFitness = bHigherIsBetter ? MAX_FLT : -MAX_FLT;
+
+	for (const auto& It : CurrentPopFitness)
 	{
-		int32 PopIdx = It.Key;
-		float TotalFitness = It.Value;
-
-		// Check cooldown
-		if (TrainerContext->NextNukeAvailableTimePerPopulation.Contains(PopIdx) && CurrentTime < TrainerContext->NextNukeAvailableTimePerPopulation[PopIdx])
+		const float Fit = It.Value;
+		if (bHigherIsBetter ? (Fit < LowestPopFitness) : (Fit > LowestPopFitness))
 		{
-			continue;
-		}
-
-		TArray<float>& History = PopulationFitnessHistory.FindOrAdd(PopIdx);
-		History.Add(TotalFitness);
-
-		if (History.Num() >= Config->MinHistoryForStaleness)
-		{
-			if (History.Num() > Config->MinHistoryForStaleness)
-			{
-				History.RemoveAt(0);
-			}
-
-			float StartFitness = History[0];
-			float EndFitness = History.Last();
-			float Improvement = (StartFitness > 0.0001f) ? (EndFitness - StartFitness) / StartFitness : (EndFitness - StartFitness);
-
-			if (Improvement < Config->StalenessThreshold)
-			{
-				StalePopulations.Add(PopIdx);
-			}
+			LowestPopFitness = Fit;
+			LowestPopIdx = It.Key;
 		}
 	}
 
-	if (StalePopulations.Num() == 0)
+	if (LowestPopIdx == -1)
 	{
 		return;
 	}
 
-	// 3. Find the worst stale population (lowest total elite fitness)
-	// IMPORTANT: We should NOT nuke the population containing the global best elite.
-	int32 WorstStalePop = -1;
-	float MinStaleFitness = bHigherIsBetter ? MAX_FLT : -MAX_FLT;
-
-	const FFitnessComponent* GlobalBestFit = Registry.try_get<FFitnessComponent>(GlobalBestElite);
-	const int32 GlobalBestPopIdx = GlobalBestFit ? GlobalBestFit->BuiltForFitnessIndex : -1;
-
-	for (int32 PopIdx : StalePopulations)
+	// -----------------------------------------------------------------------
+	// 3. Record history for ALL populations (needed for future staleness checks)
+	// -----------------------------------------------------------------------
 	{
-		// Protect the global best population from being nuked
-		if (PopIdx == GlobalBestPopIdx)
+		for (const auto& It : CurrentPopFitness)
 		{
-			continue;
-		}
+			TArray<float>& History = PopulationFitnessHistory.FindOrAdd(It.Key);
+			History.Add(It.Value);
 
-		float Fit = CurrentPopFitness[PopIdx];
-		if (bHigherIsBetter ? (Fit < MinStaleFitness) : (Fit > MinStaleFitness))
-		{
-			MinStaleFitness = Fit;
-			WorstStalePop = PopIdx;
+			const int32 MaxHistory = Config->MinHistoryForStaleness;
+			while (History.Num() > MaxHistory)
+			{
+				History.RemoveAt(0);
+			}
 		}
 	}
 
-	if (WorstStalePop != -1)
-	{
-		// 4. NUKE IT
-		UE_LOG(LogTemp, Warning, TEXT("[GAStalenessSystem] Nuking stale population %d (Fitness: %f)"), WorstStalePop, MinStaleFitness);
+	// -----------------------------------------------------------------------
+	// 4. Check staleness ONLY for the lowest-fitness population
+	// -----------------------------------------------------------------------
+	TArray<float>& LowestHistory = PopulationFitnessHistory.FindOrAdd(LowestPopIdx);
 
-		// Tag all non-elite entities in this population for reset
-		auto PopView = GetRegistry().view<FFitnessComponent>(entt::exclude_t<FEliteTagComponent>{});
+	if (LowestHistory.Num() < Config->MinHistoryForStaleness)
+	{
+		// Not enough data yet -- just keep collecting
+		return;
+	}
+
+	float StartFitness = LowestHistory[0];
+	float EndFitness = LowestHistory.Last();
+	float Improvement = (StartFitness > 0.0001f)
+		? (EndFitness - StartFitness) / StartFitness
+		: (EndFitness - StartFitness);
+
+	if (Improvement >= Config->StalenessThreshold)
+	{
+		// Not stale -- still improving
+		return;
+	}
+
+	// -----------------------------------------------------------------------
+	// 5. STALE -- NUKE the lowest-fitness population
+	// -----------------------------------------------------------------------
+	UE_LOG(LogTemp, Warning,
+		TEXT("[GAStalenessSystem] Staleness detected! Nuking lowest-fitness population %d "
+			"(TotalFitness: %f, Improvement: %f over %d iterations)"),
+		LowestPopIdx, LowestPopFitness, Improvement, Config->MinHistoryForStaleness);
+
+	// 5a. Tag ALL non-elite entities in this population for reset
+	{
+		auto PopView = Registry.view<FFitnessComponent>(entt::exclude_t<FEliteTagComponent>{});
 		for (auto E : PopView)
 		{
 			const auto& Fit = PopView.get<FFitnessComponent>(E);
-			if (Fit.BuiltForFitnessIndex == WorstStalePop)
+			if (Fit.BuiltForFitnessIndex == LowestPopIdx)
 			{
-				GetRegistry().get_or_emplace<FResetGenomeComponent>(E).ReasonForReset = TEXT("StalenessNuke");
+				Registry.get_or_emplace<FResetGenomeComponent>(E).ReasonForReset = TEXT("StalenessNuke");
 			}
 		}
-
-		// Pass 1: find worst elite in stale pop BEFORE resetting (so comparison is meaningful)
-		auto ElitePopView = GetRegistry().view<FEliteTagComponent, FFitnessComponent>();
-		entt::entity LocalWorstElite = entt::null;
-		float LocalWorstFitness = bHigherIsBetter ? MAX_FLT : -MAX_FLT;
-
-		for (auto E : ElitePopView)
-		{
-			const auto& Fit = ElitePopView.get<FFitnessComponent>(E);
-			if (Fit.BuiltForFitnessIndex != WorstStalePop || Fit.Fitness.Num() == 0)
-			{
-				continue;
-			}
-			// Read fitness for this elite's actual population index
-			const float F = Fit.Fitness[WorstStalePop];
-			const bool bWorse = bHigherIsBetter ? (F < LocalWorstFitness) : (F > LocalWorstFitness);
-			if (LocalWorstElite == entt::null || bWorse)
-			{
-				LocalWorstFitness = F;
-				LocalWorstElite = E;
-			}
-		}
-
-		// Pass 2: reset all elite fitness in stale pop to neutral
-		for (auto E : ElitePopView)
-		{
-			auto& Fit = ElitePopView.get<FFitnessComponent>(E);
-			if (Fit.BuiltForFitnessIndex == WorstStalePop && Fit.Fitness.Num() > 0)
-			{
-				// Reset fitness for this elite's actual population index
-				Fit.Fitness[WorstStalePop] = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
-			}
-		}
-
-		// 5. Pioneer Injection: create a new elite entity seeded with the global best genome.
-		// Only migrate from a DIFFERENT population so we don't clone within the same pool.
-		const bool bGlobalBestFromDifferentPop = GlobalBestFit && GlobalBestFit->BuiltForFitnessIndex != WorstStalePop;
-
-		if (GetRegistry().valid(GlobalBestElite) && GetRegistry().valid(LocalWorstElite) && bGlobalBestFromDifferentPop)
-		{
-			if (GetRegistry().all_of<FEliteOwnedFloatGenome>(GlobalBestElite))
-			{
-				const auto& SrcOwned = GetRegistry().get<FEliteOwnedFloatGenome>(GlobalBestElite);
-
-				// Destroy the worst elite slot to maintain EliteCount, then create a fresh pioneer entity
-				GetRegistry().destroy(LocalWorstElite);
-
-				const entt::entity Pioneer = GetRegistry().create();
-				GetRegistry().emplace<FEliteTagComponent>(Pioneer);
-
-				FFitnessComponent PioneerFit{};
-				PioneerFit.BuiltForFitnessIndex = WorstStalePop;
-				PioneerFit.Fitness.SetNum(WorstStalePop + 1, EAllowShrinking::No);
-				PioneerFit.Fitness[WorstStalePop] = bHigherIsBetter ? -MAX_FLT : MAX_FLT;
-				GetRegistry().emplace<FFitnessComponent>(Pioneer, MoveTemp(PioneerFit));
-
-				FEliteOwnedFloatGenome& PioneerOwned = GetRegistry().emplace<FEliteOwnedFloatGenome>(Pioneer);
-				PioneerOwned.Values = SrcOwned.Values;
-
-				FGenomeFloatViewComponent& PioneerView = GetRegistry().emplace<FGenomeFloatViewComponent>(Pioneer);
-				PioneerView.Values = TArrayView<float>(PioneerOwned.Values.GetData(), PioneerOwned.Values.Num());
-
-				UE_LOG(LogTemp, Log, TEXT("[GAStalenessSystem] Pioneer migrated from population %d into population %d"),
-					GlobalBestFit->BuiltForFitnessIndex, WorstStalePop);
-			}
-		}
-
-		// Set cooldown
-		TrainerContext->NextNukeAvailableTimePerPopulation.FindOrAdd(WorstStalePop) = CurrentTime + Config->StalenessCooldown;
-		PopulationFitnessHistory.FindOrAdd(WorstStalePop).Empty();
 	}
+
+	// 5b. Re-randomize NN weights for ALL non-elite entities in this population
+	{
+		TArray<FNeuralNetworkLayerDescriptor> LayerDescriptors = Config->GetNNLayerDescriptors();
+		auto PopView = Registry.view<FFitnessComponent, FNeuralNetworkFloat>(entt::exclude_t<FEliteTagComponent>{});
+
+		for (auto E : PopView)
+		{
+			const auto& Fit = PopView.get<FFitnessComponent>(E);
+			if (Fit.BuiltForFitnessIndex == LowestPopIdx)
+			{
+				FNeuralNetworkFloat& NetComp = PopView.get<FNeuralNetworkFloat>(E);
+				// Reinitialize with a random seed to get fresh random weights
+				const int32 RandomSeed = FMath::RandRange(1, 2147483647);
+				NetComp.Initialize(LayerDescriptors, RandomSeed);
+
+				// Update the genome view to point to the reinitialized network data
+				if (FGenomeFloatViewComponent* GenomeView = Registry.try_get<FGenomeFloatViewComponent>(E))
+				{
+					GenomeView->Values = NetComp.Network.GetDataView();
+				}
+			}
+		}
+	}
+
+	// 5c. Find the global best elite's genome BEFORE destroying any elites
+	const FFitnessComponent* GlobalBestFit = Registry.try_get<FFitnessComponent>(GlobalBestElite);
+	TArray<float> BestGenomeCopy;
+
+	if (Registry.valid(GlobalBestElite) && Registry.all_of<FEliteOwnedFloatGenome>(GlobalBestElite))
+	{
+		const auto& SrcOwned = Registry.get<FEliteOwnedFloatGenome>(GlobalBestElite);
+		BestGenomeCopy = SrcOwned.Values;
+	}
+
+	// 5d. Destroy ALL elite entities in the nuked population
+	{
+		TArray<entt::entity> ElitesToDestroy;
+		for (auto E : EliteView)
+		{
+			const auto& Fit = EliteView.get<FFitnessComponent>(E);
+			if (Fit.BuiltForFitnessIndex == LowestPopIdx)
+			{
+				ElitesToDestroy.Add(E);
+			}
+		}
+
+		for (auto E : ElitesToDestroy)
+		{
+			Registry.destroy(E);
+		}
+	}
+
+	// 5e. Create new elite entities for ALL elite slots, seeded with the global best genome
+	if (BestGenomeCopy.Num() > 0)
+	{
+		// Grab the SourceId of the global best elite so we can reference it
+		int64 GlobalBestSourceId = 0;
+		if (Registry.valid(GlobalBestElite) && Registry.all_of<FUniqueSolutionComponent>(GlobalBestElite))
+		{
+			GlobalBestSourceId = Registry.get<FUniqueSolutionComponent>(GlobalBestElite).SourceId;
+		}
+
+		for (int32 i = 0; i < Config->EliteCount; ++i)
+		{
+			const entt::entity NewElite = Registry.create();
+
+			Registry.emplace<FEliteTagComponent>(NewElite);
+
+			// CRITICAL: Must have FUniqueSolutionComponent or the elite selection system's
+			// EliteView (which requires FEliteTagComponent + FFitnessComponent + FUniqueSolutionComponent)
+			// will not see this entity, causing duplicate elites to be created every tick.
+			FUniqueSolutionComponent& NewUnique = Registry.emplace<FUniqueSolutionComponent>(NewElite);
+			NewUnique.Id = FUniqueSolutionComponent::GenerateNewId();
+			NewUnique.SourceId = GlobalBestSourceId;
+
+			FFitnessComponent NewFit{};
+			NewFit.BuiltForFitnessIndex = LowestPopIdx;
+			NewFit.Fitness.SetNumZeroed(Config->NumPopulations);
+			// Set fitness to the actual global best value so these elites aren't immediately
+			// overridden by elite selection — they already represent the best known solution.
+			NewFit.Fitness[LowestPopIdx] = GlobalBestFitness;
+			Registry.emplace<FFitnessComponent>(NewElite, MoveTemp(NewFit));
+
+			FEliteOwnedFloatGenome& NewOwned = Registry.emplace<FEliteOwnedFloatGenome>(NewElite);
+			NewOwned.Values = BestGenomeCopy;
+
+			FGenomeFloatViewComponent& NewView = Registry.emplace<FGenomeFloatViewComponent>(NewElite);
+			NewView.Values = TArrayView<float>(NewOwned.Values.GetData(), NewOwned.Values.Num());
+		}
+
+		UE_LOG(LogTemp, Log,
+			TEXT("[GAStalenessSystem] Replaced all %d elite slots in population %d with global best genome "
+				"(GlobalBestFitness: %f, from population %d)"),
+			Config->EliteCount, LowestPopIdx, GlobalBestFitness,
+			GlobalBestFit ? GlobalBestFit->BuiltForFitnessIndex : -1);
+	}
+
+	// 5f. Set global cooldown and clear history for the nuked population
+	TrainerContext->NextNukeAvailableTime = CurrentTime + Config->StalenessCooldown;
+	PopulationFitnessHistory.FindOrAdd(LowestPopIdx).Empty();
 }

@@ -171,7 +171,7 @@ void UVehicleTrainerDebugSystem::Update_Implementation(float DeltaTime)
 		// This prevents dots from following reset vehicles to the spawn point
 		if (PromoComp.Location != FVector::ZeroVector)
 		{
-			DrawDebugPoint(GetContext()->GetWorld(), PromoComp.Location, 50.0f, FColor::Black, false, 20.0f, 0);
+			DrawDebugPoint(GetContext()->GetWorld(), PromoComp.Location, 20.0f, FColor::Black, false, 20.0f, 0);
 		}
 	}
 }
