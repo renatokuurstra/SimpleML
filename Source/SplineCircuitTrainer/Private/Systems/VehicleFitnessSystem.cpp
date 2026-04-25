@@ -27,7 +27,8 @@ void UVehicleFitnessSystem::Update_Implementation(float DeltaTime)
 			if (Spline)
 			{
 				int32 NumPoints = Spline->GetNumberOfSplinePoints();
-				NumSegments = NumPoints > 1 ? NumPoints - 1 : 0;
+				// For a closed/looped spline with N points there are N segments (last point connects back to first)
+				NumSegments = NumPoints > 1 ? (Spline->IsClosedLoop() ? NumPoints : NumPoints - 1) : 0;
 				bIsClosedLoop = Spline->IsClosedLoop();
 			}
 		}

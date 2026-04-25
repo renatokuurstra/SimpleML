@@ -12,7 +12,7 @@
  * Implements ISimpleMLVehicleNNInterface as required by the trainer's output systems.
  */
 UCLASS()
-class ATestVehiclePawn : public APawn, public ISimpleMLVehicleNNInterface
+class ATestVehiclePawn : public APawn, public IVehicleNNInterface
 {
 	GENERATED_BODY()
 

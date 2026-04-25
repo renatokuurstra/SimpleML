@@ -93,10 +93,12 @@ void UVehicleEntityFactory::Initialize_Implementation(AEcsContext* InContext)
 				UVehicleLibrary::SetTrainingData(TrainingData, Spline, SpawnLocation, World->GetTimeSeconds());
 				
 				// Initialize segment pass count array to match number of spline segments
+				// For a closed/looped spline with N points there are N segments (last point connects back to first)
+				// For an open spline with N points there are N-1 segments
 				if (Spline)
 				{
 					int32 NumPoints = Spline->GetNumberOfSplinePoints();
-					int32 NumSegments = NumPoints > 1 ? NumPoints - 1 : 0;
+					int32 NumSegments = NumPoints > 1 ? (Spline->IsClosedLoop() ? NumPoints : NumPoints - 1) : 0;
 					if (NumSegments > 0)
 					{
 						TrainingData.SegmentPassCount.Init(0, NumSegments);

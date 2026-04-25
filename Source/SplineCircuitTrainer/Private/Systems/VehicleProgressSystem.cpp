@@ -43,8 +43,10 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 	}
 
 	// Pre-calculate segment count for normalized distance within segment
+	// For a closed/looped spline with N points there are N segments (last point connects back to first)
+	// For an open spline with N points there are N-1 segments
 	int32 NumPoints = Spline->GetNumberOfSplinePoints();
-	int32 NumSegments = NumPoints > 1 ? NumPoints - 1 : 0;
+	int32 NumSegments = NumPoints > 1 ? (Spline->IsClosedLoop() ? NumPoints : NumPoints - 1) : 0;
 
 	auto View = GetView<FVehicleComponent, FTrainingDataComponent>();
 	

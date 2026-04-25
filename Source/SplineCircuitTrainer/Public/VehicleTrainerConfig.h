@@ -49,7 +49,7 @@ public:
 	int32 NumPopulations = 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Structure")
-	TArray<int32> HiddenLayerSizes = { 16, 16 };
+	TArray<int32> HiddenLayerSizes = { 32, 24, 16 }; // Wider network for 28 base inputs + recurrent
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Inputs")
 	float MaxDistanceNormalization = 500.0f;
@@ -59,6 +59,36 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Inputs")
 	float MaxVelocityNormalization = 2000.0f;
+
+	// --- Physics / Kinematic Input Normalization ---
+
+	/** Max pitch/roll angle (radians) used to normalize pitch and roll inputs to [-1, 1]. Default ~30 degrees. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Inputs", meta = (ClampMin = "0.01"))
+	float MaxPitchRollRadians = 0.524f;
+
+	/** Max height above/below spline (cm) used to normalize height-difference input to [-1, 1]. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Inputs", meta = (ClampMin = "1.0"))
+	float MaxHeightDifferenceCM = 200.0f;
+
+	/** Max angular velocity (degrees/s) used to normalize pitch/yaw/roll rate inputs to [-1, 1]. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Inputs", meta = (ClampMin = "1.0"))
+	float MaxAngularVelocityDegPerSec = 180.0f;
+
+	/** Max vertical velocity (cm/s) used to normalize vertical-speed input to [-1, 1]. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Inputs", meta = (ClampMin = "1.0"))
+	float MaxVerticalVelocity = 500.0f;
+
+	/** Max forward speed along spline (cm/s) used to normalize forward-velocity input to [0, 1]. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Inputs", meta = (ClampMin = "1.0"))
+	float MaxForwardVelocity = 3000.0f;
+
+	/** Max spline curvature (radians over lookahead distance) used to normalize curvature input to [0, 1]. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Inputs", meta = (ClampMin = "0.01"))
+	float MaxSplineCurvatureRadians = 1.571f;
+
+	/** Lookahead distance (cm) for measuring spline curvature. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Inputs", meta = (ClampMin = "10.0"))
+	float CurvatureLookaheadDistance = 500.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neural Network|Inputs")
 	int32 RecurrentInputCount = 0;

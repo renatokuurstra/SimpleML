@@ -32,13 +32,13 @@ void UVehicleNNOutputSystem::Update_Implementation(float DeltaTime)
 		const FVehicleComponent& VehicleComp = View.get<FVehicleComponent>(Entity);
 		const FNNOutFloatComp& OutComp = View.get<FNNOutFloatComp>(Entity);
 
-		if (VehicleComp.VehiclePawn && VehicleComp.VehiclePawn->GetClass()->ImplementsInterface(USimpleMLVehicleNNInterface::StaticClass()))
+		if (VehicleComp.VehiclePawn && VehicleComp.VehiclePawn->GetClass()->ImplementsInterface(UVehicleNNInterface::StaticClass()))
 		{
 			if (OutComp.Values.Num() >= OutputCount)
 			{
 				// Only pass the first N elements (ignoring recurrence outputs)
 				TArrayView<const float> OutputView(OutComp.Values.GetData(), OutputCount);
-				Cast<ISimpleMLVehicleNNInterface>(VehicleComp.VehiclePawn)->ApplyNNOutputs(OutputView);
+				Cast<IVehicleNNInterface>(VehicleComp.VehiclePawn)->ApplyNNOutputs(OutputView);
 			}
 		}
 	}
