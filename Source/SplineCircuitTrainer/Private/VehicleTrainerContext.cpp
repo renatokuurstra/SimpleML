@@ -45,8 +45,8 @@ AVehicleTrainerContext::AVehicleTrainerContext()
 	
 	auto& EvaluateEvent = EcsChainEvents.ChainEvents.FindOrAdd(EvaluateNetworkEvent);
 	
-	EvaluateEvent.Elements.Add(CreateDefaultSubobject<USimpleMLNNFloatFeedforwardSystem>("FeedForwardSys"));
 	EvaluateEvent.Elements.Add(CreateDefaultSubobject<UVehicleNNInputSystem>("NNInputSys"));
+	EvaluateEvent.Elements.Add(CreateDefaultSubobject<USimpleMLNNFloatFeedforwardSystem>("FeedForwardSys"));
 	EvaluateEvent.Elements.Add(CreateDefaultSubobject<UVehicleNNOutputSystem>("NNOutputSys"));
 	EvaluateEvent.bIsUpdateSystems = true;
 	EvaluateEvent.UpdateFreqSec = 0.1f;
@@ -90,12 +90,6 @@ void AVehicleTrainerContext::InitializeSystemsFromConfig()
 	if (!TrainerConfig)
 	{
 		return;
-	}
-
-	// Update Chain Event frequencies
-	if (FChainEventData* EvaluateEvent = EcsChainEvents.ChainEvents.Find(EvaluateNetworkEvent))
-	{
-		EvaluateEvent->UpdateFreqSec = TrainerConfig->NetworkUpdateFrequencyMS / 1000.0f;
 	}
 
 	// Iterate through systems in NewGenerationEvent and EvaluateNetworkEvent to initialize parameters
