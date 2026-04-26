@@ -10,6 +10,7 @@ const FName UVehicleLibrary::ReasonTooFarFromSpline = FName("TooFarFromSpline");
 const FName UVehicleLibrary::ReasonNoProgress = FName("NoProgress");
 const FName UVehicleLibrary::ReasonTooSlow = FName("TooSlow");
 const FName UVehicleLibrary::ReasonIncorrectProgress = FName("IncorrectProgress");
+const FName UVehicleLibrary::ReasonBackwardStart = FName("BackwardStart");
 
 void UVehicleLibrary::GetVehicleSpawnTransform(const USplineComponent* Spline, float Distance, float VerticalOffset, FVector& OutLocation, FRotator& OutRotation)
 {

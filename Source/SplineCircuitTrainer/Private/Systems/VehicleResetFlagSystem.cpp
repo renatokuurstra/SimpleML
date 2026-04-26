@@ -81,6 +81,7 @@ void UVehicleResetFlagSystem::Update_Implementation(float DeltaTime)
 					else if (Reason == UVehicleLibrary::ReasonTooSlow) Color = FColor::Blue;
 					else if (Reason == UVehicleLibrary::ReasonNoProgress) Color = FColor::Yellow;
 					else if (Reason == UVehicleLibrary::ReasonIncorrectProgress) Color = FColor::White; // Use white for incorrect progress
+					else if (Reason == UVehicleLibrary::ReasonBackwardStart) Color = FColor::Orange; // Backward start reset
 				}
 
 				DrawDebugPoint(GetContext()->GetWorld(), PawnLocation, 20.0f, Color, false, Duration, 0);

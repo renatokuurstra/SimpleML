@@ -8,7 +8,8 @@ TArray<FName> UVehicleTrainerConfig::GetResetReasonOptions() const
 	return {
 		UVehicleLibrary::ReasonTooFarFromSpline,
 		UVehicleLibrary::ReasonNoProgress,
-		UVehicleLibrary::ReasonTooSlow
+		UVehicleLibrary::ReasonTooSlow,
+		UVehicleLibrary::ReasonBackwardStart
 	};
 }
 

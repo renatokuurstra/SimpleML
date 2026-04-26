@@ -27,6 +27,9 @@ public:
 	/** Reason for resetting a vehicle because it is not progressing correctly along the spline. */
 	static const FName ReasonIncorrectProgress;
 
+	/** Reason for resetting a vehicle because it went backward from the very start (segment 0 -> segment N-1). Triggers full genome re-randomization. */
+	static const FName ReasonBackwardStart;
+
 	/**
 	 * Gets the spawn transform for a vehicle based on a spline.
 	 */

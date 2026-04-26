@@ -88,10 +88,37 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 		const float TeleportThreshold = SplineLength * 0.2f;
 		if (FMath::Abs(Delta) > TeleportThreshold)
 		{
-			TrainingData.LastSplineDistance = CurrentSplineDistance;
-			TrainingData.LastSplineSegment = CurrentSegment;
-			Delta = 0.0f;
-			UE_LOG(LogTemp, Warning, TEXT("Big jump in delta"));
+			// Check for backward-start pattern: on a closed loop, if the car was in segment 0
+			// and is now in the last segment (N-1), it went backward from the very beginning.
+			// This warrants a full reset with genome re-randomization, not just a warning.
+			bool bIsBackwardStart = false;
+			if (Spline->IsClosedLoop() && NumSegments > 1)
+			{
+				if (TrainingData.LastSplineSegment == 0 && CurrentSegment == NumSegments - 1)
+				{
+					bIsBackwardStart = true;
+				}
+			}
+
+			if (bIsBackwardStart)
+			{
+				// Car went backward from the start — flag for full reset with genome re-randomization
+				TrainingData.LastSplineDistance = CurrentSplineDistance;
+				TrainingData.LastSplineSegment = CurrentSegment;
+				Delta = 0.0f;
+
+				if (!GetContext()->GetRegistry().all_of<FResetGenomeComponent>(Entity))
+				{
+					GetContext()->GetRegistry().emplace<FResetGenomeComponent>(Entity, FResetGenomeComponent{ UVehicleLibrary::ReasonBackwardStart });
+				}
+			}
+			else
+			{
+				TrainingData.LastSplineDistance = CurrentSplineDistance;
+				TrainingData.LastSplineSegment = CurrentSegment;
+				Delta = 0.0f;
+				UE_LOG(LogTemp, Warning, TEXT("Big jump in delta"));
+			}
 		}
 
 		TrainingData.DistanceTraveled += Delta;

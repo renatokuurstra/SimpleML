@@ -8,6 +8,7 @@
 #include "VehicleTrainerConfig.h"
 #include "Components/SplineComponent.h"
 #include "VehicleLibrary.h"
+#include "Components/NetworkComponent.h"
 #include "GameFramework/Pawn.h"
 
 UVehicleResetSystem::UVehicleResetSystem()
@@ -18,6 +19,7 @@ UVehicleResetSystem::UVehicleResetSystem()
 	RegisterComponent<FFitnessComponent>();
 	RegisterComponent<FEligibleForBreedingTagComponent>();
 	RegisterComponent<FUniqueSolutionComponent>();
+	RegisterComponent<FNeuralNetworkFloat>();
 }
 
 void UVehicleResetSystem::Update_Implementation(float DeltaTime)
@@ -36,9 +38,13 @@ void UVehicleResetSystem::Update_Implementation(float DeltaTime)
 
 	auto View = GetView<FVehicleComponent, FResetGenomeComponent, FTrainingDataComponent, FUniqueSolutionComponent>();
 
+	const UVehicleTrainerConfig* Config = TrainerContext->TrainerConfig;
+	TArray<FNeuralNetworkLayerDescriptor> LayerDescriptors = Config->GetNNLayerDescriptors();
+
 	for (auto Entity : View)
 	{
 		const FVehicleComponent& VehicleComp = View.get<FVehicleComponent>(Entity);
+		FResetGenomeComponent& ResetComp = View.get<FResetGenomeComponent>(Entity);
 		FTrainingDataComponent& TrainingData = View.get<FTrainingDataComponent>(Entity);
 		FUniqueSolutionComponent& UniqueComp = View.get<FUniqueSolutionComponent>(Entity);
 
@@ -62,6 +68,25 @@ void UVehicleResetSystem::Update_Implementation(float DeltaTime)
 				for (float& F : FitComp->Fitness)
 				{
 					F = 0.0f;
+				}
+			}
+
+			// If this is a backward-start reset, completely re-randomize the NN weights
+			// so the next evaluation starts with a fresh genome instead of a proven-bad one
+			if (ResetComp.ReasonForReset == UVehicleLibrary::ReasonBackwardStart)
+			{
+				if (FNeuralNetworkFloat* NetComp = GetRegistry().try_get<FNeuralNetworkFloat>(Entity))
+				{
+					const int32 RandomSeed = FMath::RandRange(1, 2147483647);
+					NetComp->Initialize(LayerDescriptors, RandomSeed);
+
+					// Update the genome view to point to the reinitialized network data
+					if (FGenomeFloatViewComponent* GenomeView = GetRegistry().try_get<FGenomeFloatViewComponent>(Entity))
+					{
+						GenomeView->Values = NetComp->Network.GetDataView();
+					}
+
+					UE_LOG(LogTemp, Log, TEXT("[VehicleResetSystem] Backward-start detected: re-randomized NN weights for entity %d"), static_cast<int32>(Entity));
 				}
 			}
 
