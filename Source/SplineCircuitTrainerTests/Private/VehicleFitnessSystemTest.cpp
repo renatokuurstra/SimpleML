@@ -73,7 +73,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 		FitComp.Fitness[0] = 0.0f;
 
 		// Vehicle reached segment 3 with 50% progress within that segment
-		TrainingData.MaxSegmentReached = 3;
 		TrainingData.NormalizedDistanceInSegment = 0.5f;
 		TrainingData.LapsCompleted = 0;
 
@@ -98,7 +97,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 		FitComp.Fitness.SetNum(1);
 		FitComp.Fitness[0] = 0.0f;
 
-		TrainingData.MaxSegmentReached = 2;
 		TrainingData.NormalizedDistanceInSegment = 0.25f;
 
 		// First update
@@ -123,7 +121,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 		// Entity 1: reached segment 1, 75% through
 		entt::entity E1 = Registry.create();
 		FTrainingDataComponent& Data1 = Registry.emplace<FTrainingDataComponent>(E1);
-		Data1.MaxSegmentReached = 1;
 		Data1.NormalizedDistanceInSegment = 0.75f;
 		Data1.LapsCompleted = 0;
 		Registry.emplace<FFitnessComponent>(E1).Fitness.Add(0.0f);
@@ -131,7 +128,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 		// Entity 2: reached segment 4, 25% through
 		entt::entity E2 = Registry.create();
 		FTrainingDataComponent& Data2 = Registry.emplace<FTrainingDataComponent>(E2);
-		Data2.MaxSegmentReached = 4;
 		Data2.NormalizedDistanceInSegment = 0.25f;
 		Data2.LapsCompleted = 0;
 		Registry.emplace<FFitnessComponent>(E2).Fitness.Add(0.0f);
@@ -164,7 +160,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 		FitComp.Fitness[0] = 0.0f;
 
 		// Vehicle has completed 2 laps, currently at segment 1
-		TrainingData.MaxSegmentReached = 1;
 		TrainingData.NormalizedDistanceInSegment = 0.5f;
 		TrainingData.LapsCompleted = 2;
 
@@ -190,7 +185,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 		FitComp.Fitness[0] = 0.0f;
 
 		// Vehicle hasn't moved at all (MaxSegmentReached=0, NormalizedDistance=0)
-		TrainingData.MaxSegmentReached = 0;
 		TrainingData.NormalizedDistanceInSegment = 0.0f;
 		TrainingData.LapsCompleted = 0;
 
@@ -216,7 +210,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 
 		// Simulate what happens after VehicleProgressSystem detects backward movement:
 		// all progress fields are zeroed
-		TrainingData.MaxSegmentReached = 0;
 		TrainingData.NormalizedDistanceInSegment = 0.0f;
 		TrainingData.LapsCompleted = 0;
 
@@ -235,7 +228,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 		// Forward car: reached segment 2
 		entt::entity ForwardCar = Registry.create();
 		FTrainingDataComponent& ForwardData = Registry.emplace<FTrainingDataComponent>(ForwardCar);
-		ForwardData.MaxSegmentReached = 2;
 		ForwardData.NormalizedDistanceInSegment = 0.5f;
 		ForwardData.LapsCompleted = 0;
 		FFitnessComponent& ForwardFit = Registry.emplace<FFitnessComponent>(ForwardCar);
@@ -244,7 +236,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 		// Backward car: progress zeroed by VehicleProgressSystem
 		entt::entity BackwardCar = Registry.create();
 		FTrainingDataComponent& BackwardData = Registry.emplace<FTrainingDataComponent>(BackwardCar);
-		BackwardData.MaxSegmentReached = 0;
 		BackwardData.NormalizedDistanceInSegment = 0.0f;
 		BackwardData.LapsCompleted = 0;
 		FFitnessComponent& BackwardFit = Registry.emplace<FFitnessComponent>(BackwardCar);
@@ -283,7 +274,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 
 		// Simulate vehicle progress across 3 laps
 		// Lap 0, segment 2: EffectiveSegment = 0*6 + 2 = 2, Fitness = 2^2 + 0.5 = 4.5
-		TrainingData.MaxSegmentReached = 2;
 		TrainingData.NormalizedDistanceInSegment = 0.5f;
 		TrainingData.LapsCompleted = 0;
 		System->Update(0.1f);
@@ -292,7 +282,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 		PreviousFitness = Lap0Fitness;
 
 		// Lap 1, segment 2: EffectiveSegment = 1*6 + 2 = 8, Fitness = 2^8 + 0.5 = 256.5
-		TrainingData.MaxSegmentReached = 2;
 		TrainingData.LapsCompleted = 1;
 		System->Update(0.1f);
 		float Lap1Fitness = FitComp.Fitness[0];
@@ -301,7 +290,6 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 		PreviousFitness = Lap1Fitness;
 
 		// Lap 2, segment 2: EffectiveSegment = 2*6 + 2 = 14, Fitness = 2^14 + 0.5 = 16384.5
-		TrainingData.MaxSegmentReached = 2;
 		TrainingData.LapsCompleted = 2;
 		System->Update(0.1f);
 		float Lap2Fitness = FitComp.Fitness[0];

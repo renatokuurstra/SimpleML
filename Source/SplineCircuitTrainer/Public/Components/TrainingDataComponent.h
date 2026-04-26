@@ -47,10 +47,6 @@ struct FTrainingDataComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
 	TArray<int32> SegmentPassCount;
 
-	/** The highest segment index the vehicle has ever reached through forward movement. Used for fitness calculation to prevent backward movement from increasing fitness. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
-	int32 MaxSegmentReached = 0;
-
 	/** Number of complete laps completed on a closed-loop spline. Only increments on valid forward wraparound. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Training")
 	int32 LapsCompleted = 0;
@@ -72,7 +68,6 @@ struct FTrainingDataComponent
 		MaxDistanceTraveled = 0.0f;
 		TimeSinceLastProgress = 0.0f;
 		SegmentPassCount.Init(0, SegmentPassCount.Num());
-		MaxSegmentReached = 0;
 		LapsCompleted = 0;
 		NormalizedDistanceInSegment = 0.0f;
 	}

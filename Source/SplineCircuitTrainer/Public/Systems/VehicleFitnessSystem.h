@@ -9,11 +9,13 @@
 /**
  * UVehicleFitnessSystem
  * Assigns fitness to entities based on segment-based progress tracking.
- * Uses a cumulative exponential formula: EffectiveSegment = LapsCompleted * NumSegments + MaxSegmentReached (capped at 30).
+ * Uses Sum(SegmentPassCount) as the cumulative measure of total progress across all laps.
+ * Formula: EffectiveSegment = Sum(SegmentPassCount) capped at 30.
  * Fitness = 2^EffectiveSegment + NormalizedDistanceInSegment.
- * This ensures fitness keeps growing exponentially as the car completes more laps, instead of plateauing after the first lap.
- * Backward movement reduces fitness by resetting MaxSegmentReached to the current segment.
- * Fitness is always recalculated, never accumulated/stacked.
+ * SegmentPassCount is incremented on every confirmed forward segment transition, so the sum
+ * naturally grows by NumSegments per lap — no separate lap counter needed.
+ * Backward movement triggers a reset (SegmentPassCount zeroed), so backward movers get low fitness.
+ * Fitness is always recalculated from scratch, never accumulated/stacked.
  */
 UCLASS()
 class SPLINECIRCUITTRAINER_API UVehicleFitnessSystem : public UEcsSystem

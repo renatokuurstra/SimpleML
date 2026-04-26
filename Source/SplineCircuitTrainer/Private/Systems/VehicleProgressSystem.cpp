@@ -84,14 +84,14 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 		}
 
 		// Teleport / bad-read guard
-		// If the delta is still larger than a reasonable threshold (e.g., 20% of spline length in one frame),
-		// treat it as a discontinuity and reset the tracking state.
+		//Let's just send a warning and zeroes the delta for this evaluation.
 		const float TeleportThreshold = SplineLength * 0.2f;
 		if (FMath::Abs(Delta) > TeleportThreshold)
 		{
 			TrainingData.LastSplineDistance = CurrentSplineDistance;
 			TrainingData.LastSplineSegment = CurrentSegment;
-			continue;
+			Delta = 0.0f;
+			UE_LOG(LogTemp, Warning, TEXT("Big jump in delta"));
 		}
 
 		TrainingData.DistanceTraveled += Delta;
@@ -125,7 +125,6 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 					if (CurrentSegment == TrainingData.LastSplineSegment + 1)
 					{
 						// Valid forward progression: segment N -> N+1
-						TrainingData.MaxSegmentReached = FMath::Max(TrainingData.MaxSegmentReached, CurrentSegment);
 						TrainingData.SegmentPassCount[CurrentSegment]++;
 					}
 					else
@@ -139,20 +138,15 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 				else // CurrentSegment < TrainingData.LastSplineSegment
 				{
 					// Segment index decreased - could be valid wraparound or backward movement
-					if (Spline->IsClosedLoop())
+					if (Spline->IsClosedLoop() && CurrentSegment == 0)
 					{
 						// On a closed loop, a segment index decrease is a valid wraparound
-						// ONLY if Delta > 0 (forward movement after wraparound correction).
-						// The delta correction above ensures:
-						// - Forward wrap (end -> start): Delta was ~-SplineLength, corrected to small positive
-						// - Backward movement (segment N -> M): Delta stays negative, no correction
-						if (Delta > 0.0f)
+						// ONLY if we went from the last segment (NumSegments-1) to segment 0.
+						// Going from segment 0 to segment N-1 is backward movement.
+						if (TrainingData.LastSplineSegment == NumSegments - 1 && CurrentSegment == 0)
 						{
 							// Valid wraparound - completed a full lap
 							TrainingData.LapsCompleted++;
-							// Ensure MaxSegmentReached reflects that we've covered all segments this lap
-							int32 NumSegs = TrainingData.SegmentPassCount.Num();
-							TrainingData.MaxSegmentReached = FMath::Max(TrainingData.MaxSegmentReached, NumSegs - 1);
 							TrainingData.SegmentPassCount[CurrentSegment]++;
 						}
 						else
@@ -189,7 +183,6 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 		// and if it completes another lap, LapsCompleted increments naturally.
 		if (bHadBackwardMovement)
 		{
-			TrainingData.MaxSegmentReached = CurrentSegment;
 			TrainingData.NormalizedDistanceInSegment = 0.0f;
 		}
 
