@@ -141,18 +141,23 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 					// Segment index decreased - could be valid wraparound or backward movement
 					if (Spline->IsClosedLoop())
 					{
-						// Check if this is a valid wraparound (last segment -> segment 0)
-						int32 NumSegs = TrainingData.SegmentPassCount.Num();
-						if (TrainingData.LastSplineSegment == NumSegs - 1 && CurrentSegment == 0)
+						// On a closed loop, a segment index decrease is a valid wraparound
+						// ONLY if Delta > 0 (forward movement after wraparound correction).
+						// The delta correction above ensures:
+						// - Forward wrap (end -> start): Delta was ~-SplineLength, corrected to small positive
+						// - Backward movement (segment N -> M): Delta stays negative, no correction
+						if (Delta > 0.0f)
 						{
 							// Valid wraparound - completed a full lap
 							TrainingData.LapsCompleted++;
+							// Ensure MaxSegmentReached reflects that we've covered all segments this lap
+							int32 NumSegs = TrainingData.SegmentPassCount.Num();
 							TrainingData.MaxSegmentReached = FMath::Max(TrainingData.MaxSegmentReached, NumSegs - 1);
 							TrainingData.SegmentPassCount[CurrentSegment]++;
 						}
 						else
 						{
-							// Backward movement on closed loop (not a valid wraparound)
+							// Genuine backward movement on closed loop
 							bIsProgressingCorrectly = false;
 							bHadBackwardMovement = true;
 						}
@@ -174,10 +179,17 @@ void UVehicleProgressSystem::Update_Implementation(float DeltaTime)
 		// Setting MaxSegmentReached to the current segment (not 0) prevents a permanent
 		// trap: if the car is at segment N and we zero it, the car can never recover
 		// unless it advances to segment N+1 — which may be impossible near the spline end.
+		//
+		// IMPORTANT: Do NOT reset LapsCompleted here. The fitness formula uses
+		// EffectiveSegment = LapsCompleted * NumSegments + MaxSegmentReached.
+		// Resetting LapsCompleted would erase all multi-lap progress on a single backward step.
+		// Backward movement is still penalized because MaxSegmentReached drops to CurrentSegment,
+		// which significantly reduces the effective segment (and thus fitness).
+		// The car can recover by continuing forward — MaxSegmentReached will increase again,
+		// and if it completes another lap, LapsCompleted increments naturally.
 		if (bHadBackwardMovement)
 		{
 			TrainingData.MaxSegmentReached = CurrentSegment;
-			TrainingData.LapsCompleted = 0;
 			TrainingData.NormalizedDistanceInSegment = 0.0f;
 		}
 

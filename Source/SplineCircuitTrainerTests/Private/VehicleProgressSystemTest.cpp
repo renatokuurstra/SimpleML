@@ -376,11 +376,12 @@ TEST_CLASS(SplineCircuitTrainer_VehicleProgressSystem_Tests, "SplineCircuitTrain
 		// Should be marked for reset
 		ASSERT_THAT(IsTrue(Registry.all_of<FResetGenomeComponent>(Entity), "Should be marked for reset after backward movement"));
 
-		// MaxSegmentReached should be ZEROED (not preserved)
-		ASSERT_THAT(IsTrue(Data.MaxSegmentReached == 0, "MaxSegmentReached should be zeroed on backward movement"));
+		// MaxSegmentReached should be set to CurrentSegment (not zeroed anymore)
+		// Position (150, 0, 0) is in segment 1, so MaxSegmentReached should be 1
+		ASSERT_THAT(IsTrue(Data.MaxSegmentReached == 1, "MaxSegmentReached should be set to current segment on backward movement"));
 
-		// LapsCompleted should be zeroed
-		ASSERT_THAT(IsTrue(Data.LapsCompleted == 0, "LapsCompleted should be zeroed on backward movement"));
+		// LapsCompleted persists (not zeroed) - but was 0 in this test since no lap was completed
+		ASSERT_THAT(IsTrue(Data.LapsCompleted == 0, "LapsCompleted should still be 0 (no lap was completed in this test)"));
 
 		// NormalizedDistanceInSegment should be zeroed
 		ASSERT_THAT(IsTrue(Data.NormalizedDistanceInSegment == 0.0f, "NormalizedDistanceInSegment should be zeroed on backward movement"));
@@ -459,9 +460,11 @@ TEST_CLASS(SplineCircuitTrainer_VehicleProgressSystem_Tests, "SplineCircuitTrain
 		Pawn->SetActorLocation(FVector(150, 0, 0));
 		System->Update(0.1f);
 
-		// Should be marked for reset AND progress zeroed
+		// Should be marked for reset AND progress reduced
 		ASSERT_THAT(IsTrue(Registry.all_of<FResetGenomeComponent>(Entity), "Should be marked for reset"));
-		ASSERT_THAT(IsTrue(Data.MaxSegmentReached == 0, "MaxSegmentReached should be zeroed"));
-		ASSERT_THAT(IsTrue(Data.LapsCompleted == 0, "LapsCompleted should be zeroed"));
+		// MaxSegmentReached is set to CurrentSegment (position 150 is in segment 1)
+		ASSERT_THAT(IsTrue(Data.MaxSegmentReached == 1, "MaxSegmentReached should be set to current segment on backward movement"));
+		// LapsCompleted persists - was 0 in this test since no lap was completed
+		ASSERT_THAT(IsTrue(Data.LapsCompleted == 0, "LapsCompleted should still be 0 (no lap was completed in this test)"));
 	}
 };

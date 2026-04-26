@@ -40,42 +40,44 @@ void UVehicleFitnessSystem::Update_Implementation(float DeltaTime)
 		FFitnessComponent& FitComp = View.get<FFitnessComponent>(Entity);
 
 		if (FitComp.Fitness.Num() > 0)
-		{
-			// Calculate fitness based on segment-based progress tracking.
-			// This prevents backward movement from increasing fitness.
-			//
-			// Formula:
-			// - Closed loop: Fitness = Laps * 2^NumSegments + 2^MaxSegmentReached + NormalizedDistanceInSegment
-			// - Open path:  Fitness = 2^MaxSegmentReached + NormalizedDistanceInSegment
-			//
-			// Key properties:
-			// - MaxSegmentReached only increases on forward movement (enforced by VehicleProgressSystem)
-			// - LapsCompleted only increments on valid forward wraparound
-			// - NormalizedDistanceInSegment is 0.0-1.0 within the current segment
-			// - Fitness is ALWAYS recalculated, never stacked/accumulated
+			{
+				// Calculate fitness based on cumulative segment progress across all laps.
+				// This prevents backward movement from increasing fitness AND ensures fitness
+				// keeps growing as the car completes more laps (no plateau after first lap).
+				//
+				// Formula:
+				// - EffectiveSegment = LapsCompleted * NumSegments + MaxSegmentReached (capped at 30)
+				// - Fitness = 2^EffectiveSegment + NormalizedDistanceInSegment
+				//
+				// Key properties:
+				// - MaxSegmentReached only increases on forward movement (enforced by VehicleProgressSystem)
+				// - LapsCompleted only increments on valid forward wraparound
+				// - NormalizedDistanceInSegment is 0.0-1.0 within the current segment
+				// - Fitness is ALWAYS recalculated, never stacked/accumulated
+				// - Effective segment cap of 30 prevents float overflow (2^30 ~ 1 billion)
 
 			float Fitness = 0.0f;
 
-			if (NumSegments > 0)
-			{
-				// Clamp MaxSegmentReached to valid range
-				int32 ClampedMaxSegment = FMath::Clamp(TrainingData.MaxSegmentReached, 0, NumSegments - 1);
+		if (NumSegments > 0)
+		{
+			// Clamp MaxSegmentReached to valid range for the current lap
+			int32 ClampedMaxSegment = FMath::Clamp(TrainingData.MaxSegmentReached, 0, NumSegments - 1);
 
-				// Base fitness: exponential scaling based on furthest segment reached
-				// 2^N grows quickly: segment 0 = 1, segment 5 = 32, segment 10 = 1024
-				Fitness = FMath::Pow(2.0f, static_cast<float>(ClampedMaxSegment));
+			// Calculate cumulative effective segment across all laps.
+			// This ensures fitness keeps growing exponentially as the car completes more laps,
+			// instead of plateauing after the first lap.
+			// Example (10 segments): segment 5, lap 0 -> eff=5; segment 5, lap 1 -> eff=15; segment 5, lap 2 -> eff=25
+			// Cap at 30 to prevent float overflow (2^30 ~ 1 billion, well within float precision).
+			int32 EffectiveSegment = TrainingData.LapsCompleted * NumSegments + ClampedMaxSegment;
+			EffectiveSegment = FMath::Min(EffectiveSegment, 30);
 
-				// Add partial progress within current segment (0.0 to 1.0)
-				Fitness += TrainingData.NormalizedDistanceInSegment;
+			// Base fitness: exponential scaling based on cumulative segment progress
+			// 2^N grows quickly: eff 0 = 1, eff 5 = 32, eff 10 = 1024, eff 20 = 1M, eff 30 = 1B
+			Fitness = FMath::Pow(2.0f, static_cast<float>(EffectiveSegment));
 
-				// For closed loops, add significant bonus for completed laps
-				// Each lap adds 2^NumSegments, which is the fitness of completing all segments once
-				if (bIsClosedLoop && TrainingData.LapsCompleted > 0)
-				{
-					float LapBonus = FMath::Pow(2.0f, static_cast<float>(NumSegments));
-					Fitness += TrainingData.LapsCompleted * LapBonus;
-				}
-			}
+			// Add partial progress within current segment (0.0 to 1.0)
+			Fitness += TrainingData.NormalizedDistanceInSegment;
+		}
 			else
 			{
 				// Fallback: if no segments available, use distance traveled squared

@@ -9,8 +9,10 @@
 /**
  * UVehicleFitnessSystem
  * Assigns fitness to entities based on segment-based progress tracking.
- * Uses an exponential formula: Fitness = 2^MaxSegmentReached + NormalizedDistanceInSegment (+ lap bonus for closed loops).
- * This prevents backward movement from increasing fitness since MaxSegmentReached is monotonic.
+ * Uses a cumulative exponential formula: EffectiveSegment = LapsCompleted * NumSegments + MaxSegmentReached (capped at 30).
+ * Fitness = 2^EffectiveSegment + NormalizedDistanceInSegment.
+ * This ensures fitness keeps growing exponentially as the car completes more laps, instead of plateauing after the first lap.
+ * Backward movement reduces fitness by resetting MaxSegmentReached to the current segment.
  * Fitness is always recalculated, never accumulated/stacked.
  */
 UCLASS()

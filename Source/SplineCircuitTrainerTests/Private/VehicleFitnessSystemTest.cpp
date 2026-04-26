@@ -170,9 +170,13 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 
 		System->Update(0.1f);
 
-		// Expected: 2^1 + 0.5 + 2 * (2^5) = 2.5 + 64 = 66.5
-		// (5 segments, so lap bonus is 2^5 = 32 per lap)
-		ASSERT_THAT(IsNear(66.5f, FitComp.Fitness[0], 0.5f, "Fitness should include lap bonus for closed loop"));
+		// New formula: EffectiveSegment = LapsCompleted * NumSegments + MaxSegmentReached
+		// Closed loop with 6 points = 6 segments
+		// EffectiveSegment = 2 * 6 + 1 = 13
+		// Fitness = 2^13 + 0.5 = 8192.5
+		// This is MUCH higher than the old formula (66.5) because fitness now grows
+		// exponentially across laps, not just within the first lap.
+		ASSERT_THAT(IsNear(8192.5f, FitComp.Fitness[0], 0.5f, "Fitness should include cumulative lap progress for closed loop"));
 	}
 
 	TEST_METHOD(ZeroProgressYieldsMinimalFitness)
@@ -198,9 +202,10 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 
 	TEST_METHOD(BackwardMovementResultsInZeroFitness)
 	{
-		// This is the critical test: when VehicleProgressSystem detects backward movement,
-		// it zeroes MaxSegmentReached, LapsCompleted, and NormalizedDistanceInSegment.
-		// The fitness system should then calculate near-zero fitness.
+		// When VehicleProgressSystem detects backward movement, it zeroes
+		// MaxSegmentReached and NormalizedDistanceInSegment. LapsCompleted persists
+		// to preserve multi-lap progress, but MaxSegmentReached being zeroed is
+		// sufficient to penalize fitness significantly.
 		entt::registry& Registry = Context->GetRegistry();
 		entt::entity Entity = Registry.create();
 
@@ -256,5 +261,57 @@ TEST_CLASS(SplineCircuitTrainer_VehicleFitnessSystem_Tests, "SplineCircuitTraine
 		// CRITICAL: forward car must have significantly higher fitness
 		ASSERT_THAT(IsTrue(ForwardFit.Fitness[0] > BackwardFit.Fitness[0] * 2,
 			"Forward-moving car must have significantly higher fitness than backward-moving car"));
+	}
+
+	TEST_METHOD(MultiLapFitnessContinuesGrowing)
+	{
+		// CRITICAL TEST: This verifies the fix for the bug where fitness stopped
+		// growing after the first lap. With the new cumulative formula, fitness
+		// should continue to increase exponentially as the vehicle completes more laps.
+		SplineActor->SplineComponent->SetClosedLoop(true);
+		SplineActor->SplineComponent->UpdateSpline();
+
+		entt::registry& Registry = Context->GetRegistry();
+		entt::entity Entity = Registry.create();
+
+		FTrainingDataComponent& TrainingData = Registry.emplace<FTrainingDataComponent>(Entity);
+		FFitnessComponent& FitComp = Registry.emplace<FFitnessComponent>(Entity);
+		FitComp.Fitness.SetNum(1);
+		FitComp.Fitness[0] = 0.0f;
+
+		float PreviousFitness = 0.0f;
+
+		// Simulate vehicle progress across 3 laps
+		// Lap 0, segment 2: EffectiveSegment = 0*6 + 2 = 2, Fitness = 2^2 + 0.5 = 4.5
+		TrainingData.MaxSegmentReached = 2;
+		TrainingData.NormalizedDistanceInSegment = 0.5f;
+		TrainingData.LapsCompleted = 0;
+		System->Update(0.1f);
+		float Lap0Fitness = FitComp.Fitness[0];
+		ASSERT_THAT(IsNear(4.5f, Lap0Fitness, 0.1f, "Lap 0, segment 2 fitness"));
+		PreviousFitness = Lap0Fitness;
+
+		// Lap 1, segment 2: EffectiveSegment = 1*6 + 2 = 8, Fitness = 2^8 + 0.5 = 256.5
+		TrainingData.MaxSegmentReached = 2;
+		TrainingData.LapsCompleted = 1;
+		System->Update(0.1f);
+		float Lap1Fitness = FitComp.Fitness[0];
+		ASSERT_THAT(IsNear(256.5f, Lap1Fitness, 0.1f, "Lap 1, segment 2 fitness"));
+		ASSERT_THAT(IsTrue(Lap1Fitness > PreviousFitness, "Lap 1 fitness must be higher than lap 0"));
+		PreviousFitness = Lap1Fitness;
+
+		// Lap 2, segment 2: EffectiveSegment = 2*6 + 2 = 14, Fitness = 2^14 + 0.5 = 16384.5
+		TrainingData.MaxSegmentReached = 2;
+		TrainingData.LapsCompleted = 2;
+		System->Update(0.1f);
+		float Lap2Fitness = FitComp.Fitness[0];
+		ASSERT_THAT(IsNear(16384.5f, Lap2Fitness, 0.1f, "Lap 2, segment 2 fitness"));
+		ASSERT_THAT(IsTrue(Lap2Fitness > PreviousFitness, "Lap 2 fitness must be higher than lap 1"));
+		PreviousFitness = Lap2Fitness;
+
+		// Verify exponential growth: each lap at the same segment should be ~2^6 = 64x higher
+		// (because EffectiveSegment increases by NumSegments = 6 each lap)
+		ASSERT_THAT(IsTrue(Lap1Fitness / Lap0Fitness > 50, "Fitness growth between laps should be exponential"));
+		ASSERT_THAT(IsTrue(Lap2Fitness / Lap1Fitness > 50, "Fitness growth between laps should be exponential"));
 	}
 };
