@@ -83,15 +83,16 @@ void UVehicleNNInputSystem::Update_Implementation(float DeltaTime)
 		? Spline->GetDefaultUpVector(ESplineCoordinateSpace::World)
 		: FVector::UpVector;
 
-	// Normalization thresholds from config
-	const float MaxVelocityNorm = Config.MaxVelocityNormalization;
-	const float MaxForwardVelocity = Config.MaxForwardVelocity;
-	const float MaxVerticalVelocity = Config.MaxVerticalVelocity;
-	const float MaxAngularVelocity = Config.MaxAngularVelocityDegPerSec;
-	const float MaxDistance = Config.MaxDistanceNormalization;
-	const float MaxHeight = Config.MaxHeightDifferenceCM;
-	const float MaxPitchRoll = Config.MaxPitchRollRadians;
-	const float LookaheadDistance = Config.CurvatureLookaheadDistance;
+	// Pre-compute reciprocal normalization factors (multiplication is faster than division)
+	const float InvMaxVelocityNorm    = 1.0f / Config.MaxVelocityNormalization;
+	const float InvMaxForwardVelocity = 1.0f / Config.MaxForwardVelocity;
+	const float InvMaxVerticalVelocity = 1.0f / Config.MaxVerticalVelocity;
+	const float InvMaxAngularVelocity  = 1.0f / Config.MaxAngularVelocityDegPerSec;
+	const float InvMaxDistance         = 1.0f / Config.MaxDistanceNormalization;
+	const float InvMaxHeight           = 1.0f / Config.MaxHeightDifferenceCM;
+	const float InvMaxPitchRoll        = 1.0f / Config.MaxPitchRollRadians;
+	const float InvSplineLength        = 1.0f / SplineLength;
+	const float LookaheadDistance      = Config.CurvatureLookaheadDistance;
 
 	const int32 TotalInputCount = Config.GetTotalInputCount();
 
@@ -199,7 +200,7 @@ void UVehicleNNInputSystem::Update_Implementation(float DeltaTime)
 		const float CurvatureDirection = FVector::DotProduct(FVector::CrossProduct(SplineTangent, CurvatureTangent), SplineUpVector);
 
 		// Spline progress (normalized 0-1 along circuit)
-		const float SplineProgress = CurrentSplineDistance / SplineLength;
+		const float SplineProgress = CurrentSplineDistance * InvSplineLength;
 
 		// Engine state inputs from vehicle interface
 		float NormalizedRPM = 0.0f;
@@ -228,7 +229,7 @@ void UVehicleNNInputSystem::Update_Implementation(float DeltaTime)
 		// --- Spline Position (9 inputs) ---
 
 		// 0: Signed distance to spline [-1,1]
-		InComp.Values[InputIndex++] = FMath::Clamp(SignedDistance / MaxDistance, -1.0f, 1.0f);
+		InComp.Values[InputIndex++] = FMath::Clamp(SignedDistance * InvMaxDistance, -1.0f, 1.0f);
 
 		// 1: Current orientation Z-cross product [-1,1]
 		InComp.Values[InputIndex++] = FMath::Clamp(CurrentOrientation, -1.0f, 1.0f);
@@ -240,7 +241,7 @@ void UVehicleNNInputSystem::Update_Implementation(float DeltaTime)
 		}
 
 		// 4: Height above/below spline [-1,1]
-		InComp.Values[InputIndex++] = FMath::Clamp(HeightAboveSpline / MaxHeight, -1.0f, 1.0f);
+		InComp.Values[InputIndex++] = FMath::Clamp(HeightAboveSpline * InvMaxHeight, -1.0f, 1.0f);
 
 		// 5: Spline curvature ahead [0,1]
 		InComp.Values[InputIndex++] = FMath::Clamp(Curvature, 0.0f, 1.0f);
@@ -252,29 +253,29 @@ void UVehicleNNInputSystem::Update_Implementation(float DeltaTime)
 		InComp.Values[InputIndex++] = FMath::Clamp(SplineProgress, 0.0f, 1.0f);
 
 		// 8: Forward velocity along spline tangent [-1,1]
-		InComp.Values[InputIndex++] = FMath::Clamp(ForwardVelocityAlongSpline / MaxForwardVelocity, -1.0f, 1.0f);
+		InComp.Values[InputIndex++] = FMath::Clamp(ForwardVelocityAlongSpline * InvMaxForwardVelocity, -1.0f, 1.0f);
 
 		// --- Vehicle Dynamics (6 inputs) ---
 
 		// 9: Velocity magnitude [0,1]
-		InComp.Values[InputIndex++] = FMath::Clamp(VelocityMagnitude / MaxVelocityNorm, 0.0f, 1.0f);
+		InComp.Values[InputIndex++] = FMath::Clamp(VelocityMagnitude * InvMaxVelocityNorm, 0.0f, 1.0f);
 
 		// 10: Pitch angle [-1,1] (radians)
-		InComp.Values[InputIndex++] = FMath::Clamp(PitchAngleRad / MaxPitchRoll, -1.0f, 1.0f);
+		InComp.Values[InputIndex++] = FMath::Clamp(PitchAngleRad * InvMaxPitchRoll, -1.0f, 1.0f);
 
 		// 11: Roll angle [-1,1] (radians)
-		InComp.Values[InputIndex++] = FMath::Clamp(RollAngleRad / MaxPitchRoll, -1.0f, 1.0f);
+		InComp.Values[InputIndex++] = FMath::Clamp(RollAngleRad * InvMaxPitchRoll, -1.0f, 1.0f);
 
 		// 12: Lateral velocity (perpendicular to spline) [-1,1]
-		InComp.Values[InputIndex++] = FMath::Clamp(LateralVelocity / MaxVelocityNorm, -1.0f, 1.0f);
+		InComp.Values[InputIndex++] = FMath::Clamp(LateralVelocity * InvMaxVelocityNorm, -1.0f, 1.0f);
 
 		// 13: Vertical velocity [-1,1]
-		InComp.Values[InputIndex++] = FMath::Clamp(VerticalVelocity / MaxVerticalVelocity, -1.0f, 1.0f);
+		InComp.Values[InputIndex++] = FMath::Clamp(VerticalVelocity * InvMaxVerticalVelocity, -1.0f, 1.0f);
 
 		// 14,15,16: Angular velocity (pitch/yaw/roll rates) [-1,1]
-		InComp.Values[InputIndex++] = FMath::Clamp(AngularVelocity.X / MaxAngularVelocity, -1.0f, 1.0f);
-		InComp.Values[InputIndex++] = FMath::Clamp(AngularVelocity.Y / MaxAngularVelocity, -1.0f, 1.0f);
-		InComp.Values[InputIndex++] = FMath::Clamp(AngularVelocity.Z / MaxAngularVelocity, -1.0f, 1.0f);
+		InComp.Values[InputIndex++] = FMath::Clamp(AngularVelocity.X * InvMaxAngularVelocity, -1.0f, 1.0f);
+		InComp.Values[InputIndex++] = FMath::Clamp(AngularVelocity.Y * InvMaxAngularVelocity, -1.0f, 1.0f);
+		InComp.Values[InputIndex++] = FMath::Clamp(AngularVelocity.Z * InvMaxAngularVelocity, -1.0f, 1.0f);
 
 		// --- Wheels (9 inputs) ---
 
